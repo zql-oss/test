@@ -124,9 +124,12 @@ module l2_cache_tb_top;
   );
 
   // ── Bind assertions ─────────────────────────────────────────────────────────
-  // Ports without a same-named signal in l2_cache_top (ac_ready, cr_ready,
-  // mesi_state 2-D map, miss_pending, upgrade_*) take the assertion module's
-  // port defaults.
+  // VCS O-2018.09 SIGSEGVs on bind instances with defaulted ports
+  // (vcs_paramclassrepository crash during design resolution), so EVERY
+  // port of l2_cache_assertions is connected explicitly here.
+  // ac_ready/cr_ready are real l2_cache_top ports; signals not exported by
+  // the top (miss_pending, upgrade_*) are tied to constant 0 (their
+  // properties become vacuous — MESI/M covers live in the scoreboard).
   bind l2_cache_top l2_cache_assertions #(
     .ADDR_WIDTH (ADDR_WIDTH),
     .DATA_WIDTH (DATA_WIDTH),
@@ -151,10 +154,15 @@ module l2_cache_tb_top;
     .s_axi_bready  (s_axi_bready),
     .s_axi_bresp   (s_axi_bresp),
     .ac_valid      (ac_valid),
+    .ac_ready      (ac_ready),
     .cr_resp       (cr_resp),
     .cr_valid      (cr_valid),
+    .cr_ready      (cr_ready),
     .cache_hit     (cache_hit),
-    .wb_pending    (wb_pending)
+    .miss_pending  (1'b0),
+    .wb_pending    (wb_pending),
+    .upgrade_req_sent     (1'b0),
+    .upgrade_ack_received (1'b0)
   );
 
   // ── UVM config_db ────────────────────────────────────────────────────────────

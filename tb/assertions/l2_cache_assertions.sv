@@ -42,24 +42,30 @@ module l2_cache_assertions
   input  logic [1:0]                 s_axi_bresp,
 
   // Snoop interface
+  // NOTE: no port default expressions anywhere in this module — VCS
+  // O-2018.09 SIGSEGVs in design resolution (vcs_paramclassrepository)
+  // on bind instances with defaulted ports, esp. unpacked-array defaults.
+  // Every port must be explicitly connected at the bind site (tb_top).
   input  logic                       ac_valid,
-  input  logic                       ac_ready = '0,
+  input  logic                       ac_ready,
   input  logic [4:0]                 cr_resp,
   input  logic                       cr_valid,
-  input  logic                       cr_ready = '0,
+  input  logic                       cr_ready,
 
-  // MESI state (full set×way map; defaults keep the bind optional when the
-  // top level only exposes per-set state)
-  input  mesi_state_t                mesi_state [NUM_SETS-1:0][WAYS-1:0]
-                                       = '{default: MESI_INVALID},
-
-  // Internal signals (ports not present in l2_cache_top use safe defaults)
-  input  logic                       cache_hit = '0,
-  input  logic                       miss_pending = '0,
-  input  logic                       wb_pending = '0,
-  input  logic                       upgrade_req_sent = '0,
-  input  logic                       upgrade_ack_received = '0
+  // MESI state is not exposed port-wise; kept as an internal constant map
+  // (only used by the single-M-in-set property and MESI coverpoints).
+  // Internal signals (not present in l2_cache_top) are tied at the bind site.
+  input  logic                       cache_hit,
+  input  logic                       miss_pending,
+  input  logic                       wb_pending,
+  input  logic                       upgrade_req_sent,
+  input  logic                       upgrade_ack_received
 );
+
+  // Constant MESI map: only set0/ways visible here is always INVALID because
+  // l2_cache_top does not export the full per-set×way MESI array.
+  mesi_state_t mesi_state_c [NUM_SETS-1:0][WAYS-1:0]
+    = '{default: MESI_INVALID};
 
   // ===========================================================================
   // Section 1: AXI4 Protocol Assertions
@@ -131,10 +137,10 @@ module l2_cache_assertions
   property p_one_modified_per_set;
     @(posedge clk) disable iff (!rst_n)
     1'b1 |->
-    ($countones({mesi_state[0][0]==MESI_MODIFIED,
-                 mesi_state[0][1]==MESI_MODIFIED,
-                 mesi_state[0][2]==MESI_MODIFIED,
-                 mesi_state[0][3]==MESI_MODIFIED}) <= 1);
+    ($countones({mesi_state_c[0][0]==MESI_MODIFIED,
+                 mesi_state_c[0][1]==MESI_MODIFIED,
+                 mesi_state_c[0][2]==MESI_MODIFIED,
+                 mesi_state_c[0][3]==MESI_MODIFIED}) <= 1);
   endproperty
   // Note: in practice this is looped over all sets; shown for set 0
   assert_one_modified_set0: assert property (p_one_modified_per_set)
@@ -214,10 +220,10 @@ module l2_cache_assertions
                        ac_valid && cr_resp[CR_PASS_DIRTY]);
 
   // Functional coverage: All MESI states observed in set 0 way 0
-  cp_mesi_invalid:   cover property (@(posedge clk) mesi_state[0][0] == MESI_INVALID);
-  cp_mesi_shared:    cover property (@(posedge clk) mesi_state[0][0] == MESI_SHARED);
-  cp_mesi_exclusive: cover property (@(posedge clk) mesi_state[0][0] == MESI_EXCLUSIVE);
-  cp_mesi_modified:  cover property (@(posedge clk) mesi_state[0][0] == MESI_MODIFIED);
+  cp_mesi_invalid:   cover property (@(posedge clk) mesi_state_c[0][0] == MESI_INVALID);
+  cp_mesi_shared:    cover property (@(posedge clk) mesi_state_c[0][0] == MESI_SHARED);
+  cp_mesi_exclusive: cover property (@(posedge clk) mesi_state_c[0][0] == MESI_EXCLUSIVE);
+  cp_mesi_modified:  cover property (@(posedge clk) mesi_state_c[0][0] == MESI_MODIFIED);
 
 endmodule : l2_cache_assertions
 

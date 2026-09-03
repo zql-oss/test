@@ -15,7 +15,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."                      # repo root
 
-CM=line+cond+fsm+tgl+branch+assert
+CM=${CM:-line+cond+fsm+tgl+branch+assert}
 SIMOUT=sim/vcs/l2_cache_top_sim
 VDB_ROOT=sim/vcs/coverage
 RPT_DIR=reports/coverage/merged
