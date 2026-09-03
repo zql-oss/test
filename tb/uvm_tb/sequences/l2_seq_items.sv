@@ -305,11 +305,15 @@ class l2_random_traffic_seq extends l2_seq_base;
 
   task body();
     axi_seq_item item;
+    bit do_write;
     for (int i = 0; i < num_ops; i++) begin
       item = axi_seq_item::type_id::create($sformatf("rand_op_%0d", i));
       start_item(item);
+      // $urandom_range is not supported inside constraints by VCS O-2018.09
+      // (NYI-CSTR-SYS-FTC) — decide here, constrain the state variable.
+      do_write = ($urandom_range(0, 99) < write_pct);
       if (!item.randomize() with {
-        is_write == ($urandom_range(0, 99) < write_pct);
+        is_write == do_write;
       }) `uvm_fatal("SEQ", "Random traffic randomize failed")
       finish_item(item);
     end

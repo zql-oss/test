@@ -75,7 +75,7 @@ class l2_ref_model extends uvm_component;
     for (int s = 0; s < NUM_SETS; s++) begin
       plru_state[s] = '0;
       for (int w = 0; w < WAYS; w++) begin
-        model_cache[s][w] = '0;
+        model_cache[s][w] = '{default: '0};
       end
     end
   endfunction
