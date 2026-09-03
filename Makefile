@@ -45,14 +45,14 @@ WAVE_OPT    := $(if $(filter 1,$(WAVES)),+DUMP_WAVES,)
 all: help
 
 ###############################################################################
-# DPI shared library (tb/dpi/libecc_inject.so, needed by -sv_liblist)
+# DPI shared library (tb/dpi/ecc_inject.so, needed by -sv_liblist)
 ###############################################################################
 dpi:
-	@if [ ! -f tb/dpi/libecc_inject.so ]; then \
+	@if [ ! -f tb/dpi/ecc_inject.so ]; then \
 	    VCS_INC=$${VCS_HOME:-$$(dirname $$(dirname $$(command -v vcs)))}/include; \
-	    echo ">>> [GCC] Building tb/dpi/libecc_inject.so (-I$$VCS_INC) ..."; \
+	    echo ">>> [GCC] Building tb/dpi/ecc_inject.so (-I$$VCS_INC) ..."; \
 	    gcc -shared -fPIC -O2 -I"$$VCS_INC" \
-	        tb/dpi/ecc_inject.c -o tb/dpi/libecc_inject.so || \
+	        tb/dpi/ecc_inject.c -o tb/dpi/ecc_inject.so || \
 	    { echo ">>> DPI build failed: set VCS_HOME (svdpi.h not found)"; exit 1; }; \
 	fi
 	@echo ">>> DPI lib ready."

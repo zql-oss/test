@@ -124,9 +124,9 @@ class SimRunner:
         """Compile RTL and TB — only needed once per regression."""
         # Auto-build DPI shared library if missing (-sv_lib needs it at sim time)
         dpi_src = Path("tb/dpi/ecc_inject.c")
-        dpi_lib = Path("tb/dpi/libecc_inject.so")
+        dpi_lib = Path("tb/dpi/ecc_inject.so")
         if dpi_src.exists() and not dpi_lib.exists():
-            print("[DPI] building tb/dpi/libecc_inject.so ...")
+            print("[DPI] building tb/dpi/ecc_inject.so ...")
             vcs_home = os.environ.get("VCS_HOME") or ""
             if not vcs_home:
                 vcs_path = shutil.which("vcs")
@@ -135,7 +135,7 @@ class SimRunner:
             inc = f"-I{vcs_home}/include" if vcs_home else ""
             r = subprocess.run(
                 f"gcc -shared -fPIC -O2 {inc} tb/dpi/ecc_inject.c "
-                f"-o tb/dpi/libecc_inject.so",
+                f"-o tb/dpi/ecc_inject.so",
                 shell=True, capture_output=True, text=True)
             if r.returncode != 0:
                 print(f"[DPI BUILD ERROR]\n{r.stderr[-2000:]}")

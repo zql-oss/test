@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 # run_all_vcs.sh — One-click VCS flow for the L2 cache project
-#   1. build DPI lib          (tb/dpi/libecc_inject.so)
+#   1. build DPI lib          (tb/dpi/ecc_inject.so)
 #   2. compile once with functional coverage switches (-cm ...)
 #   3. run EVERY test in scripts/regression/test_plan.yaml (num_seeds each)
 #   4. merge all .vdb with urg -> reports/coverage/merged/dashboard.html
@@ -29,10 +29,10 @@ TIMEOUT_S=${TIMEOUT_S:-1800}
 mkdir -p "$VDB_ROOT" "$LOG_DIR" reports/coverage
 
 echo "=== [1/4] DPI lib ===================================================="
-if [ ! -f tb/dpi/libecc_inject.so ]; then
+if [ ! -f tb/dpi/ecc_inject.so ]; then
     VCS_INC=${VCS_HOME:-$(dirname "$(dirname "$(command -v vcs)")")}/include
     gcc -shared -fPIC -O2 -I"$VCS_INC" tb/dpi/ecc_inject.c \
-        -o tb/dpi/libecc_inject.so \
+        -o tb/dpi/ecc_inject.so \
         || { echo "DPI build failed: set VCS_HOME (svdpi.h not found)"; exit 1; }
 fi
 
