@@ -75,7 +75,7 @@ tb/uvm_tb/sequences/l2_coherency_seq.sv
 tb/uvm_tb/tests/directed/l2_performance_test.sv
 
 // ── DPI ────────────────────────────────────────────────────────────
--sv_liblist tb/dpi/ecc_inject
+-sv_lib tb/dpi/ecc_inject
 
 // ── Extended test classes (plan gap fill) ──────────────────────────
 tb/uvm_tb/tests/l2_tests_extended.sv

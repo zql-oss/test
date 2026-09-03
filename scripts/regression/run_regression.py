@@ -19,6 +19,7 @@ import json
 import os
 import re
 import subprocess
+import shutil
 import sys
 import time
 import yaml
@@ -75,6 +76,8 @@ class TestConfig:
 class SimRunner:
     """Invokes the simulator for one test/seed combination."""
 
+    CM_FLAGS = "line+cond+fsm+tgl+branch+assert"
+
     TOOL_CMD = {
         "vcs": {
             "compile": (
@@ -106,18 +109,43 @@ class SimRunner:
                 "+UVM_VERBOSITY={verbosity} "
                 "{plusargs} "
                 "-l {log} "
-                "l2_cache_top_tb"
+                "l2_cache_tb_top"
             ),
         },
     }
 
-    def __init__(self, tool: str, verbosity: str = "UVM_MEDIUM"):
+    def __init__(self, tool: str, verbosity: str = "UVM_MEDIUM", cov: bool = False):
         self.tool = tool
         self.verbosity = verbosity
+        self.cov = cov
 
     def compile(self) -> bool:
         """Compile RTL and TB — only needed once per regression."""
+        # Auto-build DPI shared library if missing (-sv_lib needs it at sim time)
+        dpi_src = Path("tb/dpi/ecc_inject.c")
+        dpi_lib = Path("tb/dpi/libecc_inject.so")
+        if dpi_src.exists() and not dpi_lib.exists():
+            print("[DPI] building tb/dpi/libecc_inject.so ...")
+            vcs_home = os.environ.get("VCS_HOME") or ""
+            if not vcs_home:
+                vcs_path = shutil.which("vcs")
+                if vcs_path:
+                    vcs_home = str(Path(vcs_path).resolve().parent.parent)
+            inc = f"-I{vcs_home}/include" if vcs_home else ""
+            r = subprocess.run(
+                f"gcc -shared -fPIC -O2 {inc} tb/dpi/ecc_inject.c "
+                f"-o tb/dpi/libecc_inject.so",
+                shell=True, capture_output=True, text=True)
+            if r.returncode != 0:
+                print(f"[DPI BUILD ERROR]\n{r.stderr[-2000:]}")
+                print("[DPI HINT] set VCS_HOME so gcc can find svdpi.h")
+                return False
+            print("[DPI] SUCCESS")
+
         cmd = self.TOOL_CMD[self.tool]["compile"].format(top="l2_cache_top_sim")
+        if self.cov and self.tool == "vcs":
+            Path("sim/vcs/coverage").mkdir(parents=True, exist_ok=True)
+            cmd += f" -cm {self.CM_FLAGS}"
         print(f"[COMPILE] {self.tool}: running...")
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         if result.returncode != 0:
@@ -142,6 +170,9 @@ class SimRunner:
             plusargs  = plusarg_str,
             log       = log_path,
         )
+        if self.cov and self.tool == "vcs":
+            cmd += (f" -cm {self.CM_FLAGS}"
+                    f" -cm_dir sim/vcs/coverage/{config.test_class}_seed{seed}.vdb")
 
         start = time.time()
         try:
@@ -224,7 +255,7 @@ class RegressionRunner:
         self.args    = args
         self.tool    = args.tool
         self.jobs    = args.jobs
-        self.runner  = SimRunner(self.tool)
+        self.runner  = SimRunner(self.tool, cov=getattr(args, "cov", False))
         self.results: List[TestResult] = []
         REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -436,6 +467,8 @@ def main():
     parser.add_argument("--tag",           default=None,
                         help="Filter tests by tag")
     parser.add_argument("--skip_compile",  action="store_true")
+    parser.add_argument("--cov",           action="store_true",
+                        help="Collect VCS coverage (line/cond/fsm/tgl/branch/assert)")
     parser.add_argument("--verbosity",     default="UVM_MEDIUM")
     parser.add_argument("--report_only",   action="store_true",
                         help="Re-generate HTML from existing results.json")

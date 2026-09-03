@@ -23,6 +23,13 @@ CACHE_KB    ?= 256
 CLK_NS      ?= 2.0
 TOP         ?= l2_cache_top
 
+# Coverage knobs (COV=1 enables VCS -cm collection at compile & sim)
+COV         ?= 0
+CM_OPTS     := line+cond+fsm+tgl+branch+assert
+COV_CFLAGS  := $(if $(filter 1,$(COV)),-cm $(CM_OPTS),)
+COV_SIM     := $(if $(filter 1,$(COV)),-cm $(CM_OPTS) -cm_dir sim/vcs/coverage/$(TEST)_$(SEED).vdb,)
+REG_COV     := $(if $(filter 1,$(COV)),--cov,)
+
 # ── Derived paths ─────────────────────────────────────────────────────────────
 SIM_OUT     := sim/$(TOOL)/$(TOP)_sim
 RPT_DIR     := reports
@@ -31,21 +38,35 @@ COV_DIR     := $(RPT_DIR)/coverage
 WAVE_OPT    := $(if $(filter 1,$(WAVES)),+DUMP_WAVES,)
 
 .PHONY: all compile sim regression regression_ci regression_nightly \
-        cov_merge cov_report lint cdc synth synth_sweep formal \
+        cov_merge cov_report cov_all dpi lint cdc synth synth_sweep formal \
         clean help
 
 # ── Default ───────────────────────────────────────────────────────────────────
 all: help
 
 ###############################################################################
+# DPI shared library (tb/dpi/libecc_inject.so, needed by -sv_liblist)
+###############################################################################
+dpi:
+	@if [ ! -f tb/dpi/libecc_inject.so ]; then \
+	    VCS_INC=$${VCS_HOME:-$$(dirname $$(dirname $$(command -v vcs)))}/include; \
+	    echo ">>> [GCC] Building tb/dpi/libecc_inject.so (-I$$VCS_INC) ..."; \
+	    gcc -shared -fPIC -O2 -I"$$VCS_INC" \
+	        tb/dpi/ecc_inject.c -o tb/dpi/libecc_inject.so || \
+	    { echo ">>> DPI build failed: set VCS_HOME (svdpi.h not found)"; exit 1; }; \
+	fi
+	@echo ">>> DPI lib ready."
+
+###############################################################################
 # Compile
 ###############################################################################
-compile:
+compile: dpi
 	@mkdir -p reports/regression
 ifeq ($(TOOL),vcs)
 	@echo ">>> [VCS] Compiling..."
 	vcs -full64 -sverilog \
 	    -f sim/vcs/vcs_filelist.f \
+	    $(COV_CFLAGS) \
 	    -o $(SIM_OUT) \
 	    -Mdir sim/vcs/csrc \
 	    -l reports/regression/compile.log
@@ -67,6 +88,7 @@ ifeq ($(TOOL),vcs)
 	    +ntb_random_seed=$(SEED) \
 	    +UVM_VERBOSITY=$(VERBOSITY) \
 	    $(WAVE_OPT) \
+	    $(COV_SIM) \
 	    -l reports/regression/$(TEST)_$(SEED).log
 else ifeq ($(TOOL),xcelium)
 	xmsim -64bit \
@@ -88,6 +110,7 @@ regression: compile
 	    --plan  scripts/regression/test_plan.yaml \
 	    --tool  $(TOOL) \
 	    --jobs  $(JOBS) \
+	    $(REG_COV) \
 	    --seeds 3
 	@echo ">>> HTML report: reports/regression/regression_report.html"
 
@@ -98,6 +121,7 @@ regression_ci: compile
 	    --tool  $(TOOL) \
 	    --jobs  $(JOBS) \
 	    --tag   ci \
+	    $(REG_COV) \
 	    --seeds 1
 
 regression_nightly: compile
@@ -106,18 +130,26 @@ regression_nightly: compile
 	    --plan  scripts/regression/test_plan.yaml \
 	    --tool  $(TOOL) \
 	    --jobs  16 \
+	    $(REG_COV) \
 	    --seeds 10
+
+###############################################################################
+# One-click: compile + run all tests with coverage + merge + report
+###############################################################################
+cov_all:
+	$(MAKE) regression COV=1 --no-print-directory
+	$(MAKE) cov_report --no-print-directory
 
 ###############################################################################
 # Coverage
 ###############################################################################
 cov_merge:
-ifeq ($(TOOL),vcs)
-	urg -dir sim/vcs/coverage/*.vdb \
+ifneq ($(wildcard sim/vcs/coverage/*.vdb),)
+	urg -dir sim/vcs/coverage \
 	    -format both \
 	    -report $(COV_DIR)/merged
 else
-	imc -execcmd "merge -out $(COV_DIR)/merged sim/xcelium/coverage/*.ucdb"
+	@echo ">>> No .vdb found in sim/vcs/coverage/ — run 'make sim COV=1' or 'make cov_all' first."; exit 1
 endif
 	@echo ">>> Coverage merged: $(COV_DIR)/merged"
 
@@ -225,6 +257,8 @@ help:
 	@echo "║    make regression                 Full regression (8j)  ║"
 	@echo "║    make regression_ci              CI smoke + directed   ║"
 	@echo "║    make regression_nightly         All tests × 10 seeds  ║"
+	@echo "║    make cov_all                    1-click: all tests    ║"
+	@echo "║                                      + coverage + report ║"
 	@echo "║    make cov_merge && cov_report    Coverage HTML report  ║"
 	@echo "║                                                          ║"
 	@echo "║  SYNTHESIS / STA                                         ║"
@@ -249,6 +283,7 @@ help:
 	@echo "║    JOBS=<int>            Parallel jobs      (8)          ║"
 	@echo "║    VERBOSITY=UVM_*       UVM verbosity      (MEDIUM)     ║"
 	@echo "║    WAVES=0|1             Dump waveforms     (0)          ║"
+	@echo "║    COV=0|1               Collect VCS coverage (0)        ║"
 	@echo "║    WAYS=2|4|8|16         Cache ways         (4)          ║"
 	@echo "║    CACHE_KB=<int>        Cache size KB      (256)        ║"
 	@echo "║    CLK_NS=<float>        Clock period ns    (2.0)        ║"
@@ -417,13 +452,7 @@ power_analysis:
 ###############################################################################
 # DPI compile (needed for ECC fault injection tests)
 ###############################################################################
-dpi_compile:
-	@echo ">>> [DPI] Compiling ECC inject library..."
-	gcc -fPIC -shared \
-	    -o tb/dpi/ecc_inject.so \
-	    tb/dpi/ecc_inject.c \
-	    -I$$VCS_HOME/include
-	@echo ">>> DPI lib: tb/dpi/ecc_inject.so"
+dpi_compile: dpi
 
 ###############################################################################
 # Waveform viewer

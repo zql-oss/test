@@ -9,6 +9,12 @@ ucli.key
 vc_hdrs.h
 .vcs_lib_lock
 
+# DPI shared object
+tb/dpi/*.so
+
+# VCS coverage databases
+sim/vcs/coverage/
+
 # Waveforms
 *.vcd
 *.fsdb
