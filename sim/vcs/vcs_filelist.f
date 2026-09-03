@@ -1,15 +1,15 @@
 // ============================================================
 // VCS Compile Filelist — L2 Cache RTL + UVM Testbench
-// Tool : Synopsys VCS 2023.03+
-// Usage: vcs -full64 -sverilog -f sim/vcs/vcs_filelist.f \
-//            -o sim/vcs/l2_sim -Mdir sim/vcs/csrc
+// Tool : Synopsys VCS O-2018.09+
+// NOTE: -full64 / -sverilog / -ntb_opts uvm-1.2 / -assert svaext
+//       are NOT accepted inside -f files — pass them on the
+//       command line (see Makefile / scripts/run_all_vcs.sh).
+// Usage: vcs -full64 -sverilog -ntb_opts uvm-1.2 -assert svaext \
+//            -f sim/vcs/vcs_filelist.f -o sim/vcs/l2_sim -Mdir sim/vcs/csrc
 // ============================================================
 
--full64
--sverilog
 -timescale=1ns/1ps
 +vcs+lic+wait
--ntb_opts uvm-1.2
 +define+SIMULATION
 +define+UVM_NO_DEPRECATED
 

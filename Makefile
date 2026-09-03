@@ -64,7 +64,7 @@ compile: dpi
 	@mkdir -p reports/regression
 ifeq ($(TOOL),vcs)
 	@echo ">>> [VCS] Compiling..."
-	vcs -full64 -sverilog \
+	vcs -full64 -sverilog -ntb_opts uvm-1.2 -assert svaext \
 	    -f sim/vcs/vcs_filelist.f \
 	    $(COV_CFLAGS) \
 	    -o $(SIM_OUT) \

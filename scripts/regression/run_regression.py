@@ -81,8 +81,8 @@ class SimRunner:
     TOOL_CMD = {
         "vcs": {
             "compile": (
-                "vcs -full64 -sverilog -timescale=1ns/1ps "
-                "+vcs+lic+wait +v2k "
+                "vcs -full64 -sverilog -ntb_opts uvm-1.2 -assert svaext "
+                "-timescale=1ns/1ps +vcs+lic+wait "
                 "-f sim/vcs/vcs_filelist.f "
                 "-o sim/vcs/{top} "
                 "-Mdir sim/vcs/csrc"

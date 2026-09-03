@@ -39,7 +39,8 @@ fi
 echo "=== [2/4] VCS compile (coverage on) =================================="
 WAVE_CFLAGS=""
 [ "$WAVES" = 1 ] && WAVE_CFLAGS="-debug_access+all"
-vcs -full64 -sverilog -timescale=1ns/1ps +vcs+lic+wait \
+vcs -full64 -sverilog -ntb_opts uvm-1.2 -assert svaext \
+    -timescale=1ns/1ps +vcs+lic+wait \
     -f sim/vcs/vcs_filelist.f \
     -cm "$CM" \
     $WAVE_CFLAGS \
