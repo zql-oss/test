@@ -96,7 +96,7 @@ echo "=== $PASS_N/$TOT_N runs PASS ==="
 
 echo "=== [4/4] Coverage merge (urg) ======================================="
 rm -rf "$RPT_DIR"
-urg -dir "$VDB_ROOT"/*.vdb -format both -report "$RPT_DIR" \
+urg -dir "$VDB_ROOT" -format both -report "$RPT_DIR" \
     | tee reports/coverage/urg.log | tail -15 || { echo "URG FAILED"; exit 1; }
 
 echo "DONE. Coverage dashboard: $RPT_DIR/dashboard.html"
