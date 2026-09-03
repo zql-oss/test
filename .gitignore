@@ -91,3 +91,6 @@ reports/formal/*.rpt
 # Questa Formal
 qverify_work/
 *.qvwork
+
+# UVS tooling
+.uvs_lsp.sh
