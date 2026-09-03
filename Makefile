@@ -89,6 +89,7 @@ ifeq ($(TOOL),vcs)
 	    +UVM_VERBOSITY=$(VERBOSITY) \
 	    $(WAVE_OPT) \
 	    $(COV_SIM) \
+	    -sv_lib tb/dpi/ecc_inject \
 	    -l reports/regression/$(TEST)_$(SEED).log
 else ifeq ($(TOOL),xcelium)
 	xmsim -64bit \

@@ -93,6 +93,7 @@ class SimRunner:
                 "+ntb_random_seed={seed} "
                 "+UVM_VERBOSITY={verbosity} "
                 "{plusargs} "
+                "-sv_lib tb/dpi/ecc_inject "
                 "-l {log}"
             ),
         },

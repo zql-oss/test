@@ -71,6 +71,7 @@ run_one() {                                    # $1=test_class $2=seed
     timeout "$TIMEOUT_S" "$SIMOUT" \
         +UVM_TESTNAME="$tc" +ntb_random_seed="$seed" +UVM_VERBOSITY=UVM_MEDIUM \
         $wave_arg \
+        -sv_lib tb/dpi/ecc_inject \
         -cm "$CM" -cm_dir "$vdb" \
         -l "$log" > /dev/null 2>&1
     local rc=$?
