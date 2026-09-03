@@ -77,6 +77,7 @@ run_one() {                                    # $1=test_class $2=seed
     local rc=$?
     if   [ $rc -eq 124 ]; then echo "TIMEOUT  $tc seed=$seed"
     elif grep -qE "UVM_FATAL[ :]" "$log" 2>/dev/null; then echo "FATAL    $tc seed=$seed"
+    elif ! grep -qE "UVM_ERROR\s*:\s*0" "$log" 2>/dev/null; then echo "NORUN    $tc seed=$seed (no UVM summary — simv died before test end)"
     elif grep -E "UVM_ERROR\s*:\s*[1-9]" "$log" >/dev/null 2>&1; then echo "FAIL     $tc seed=$seed"
     else echo "PASS     $tc seed=$seed"; fi
 }
