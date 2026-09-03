@@ -127,6 +127,15 @@ class ace_seq_item extends uvm_sequence_item;
 
 endclass
 
+// -----------------------------------------------------------------------------
+// Sequencer typedefs. These live here (not in the agent files) because
+// l2_seq_items.sv is included by the agent files and by standalone
+// compilation — the typedefs must precede `uvm_declare_p_sequencer` use.
+// -----------------------------------------------------------------------------
+typedef uvm_sequencer #(axi_seq_item) axi_sequencer;
+typedef uvm_sequencer #(axi_seq_item) mem_sequencer;
+typedef uvm_sequencer #(ace_seq_item) ace_sequencer;
+
 // =============================================================================
 // l2_seq_base — base sequence with utility methods
 // =============================================================================

@@ -59,7 +59,7 @@ endinterface
 // =============================================================================
 // ACE Snoop Sequencer
 // =============================================================================
-typedef uvm_sequencer #(ace_seq_item) ace_sequencer;
+// sequencer typedef moved to l2_seq_items.sv (compile-order dependency)
 
 // =============================================================================
 // ACE Snoop Driver

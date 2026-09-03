@@ -104,7 +104,7 @@ endinterface
 // =============================================================================
 // AXI Sequencer
 // =============================================================================
-typedef uvm_sequencer #(axi_seq_item) axi_sequencer;
+// sequencer typedef moved to l2_seq_items.sv (compile-order dependency)
 
 // =============================================================================
 // AXI Driver

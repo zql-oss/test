@@ -24,7 +24,7 @@ import uvm_pkg::*;
 
 // Reuse axi4_if from axi_slave_agent.sv (already compiled via +incdir)
 // Sequencer reuse
-typedef uvm_sequencer #(axi_seq_item) mem_sequencer;
+// sequencer typedef moved to l2_seq_items.sv (compile-order dependency)
 
 // =============================================================================
 // Memory responder driver  (AXI slave side — responds to DUT master)
