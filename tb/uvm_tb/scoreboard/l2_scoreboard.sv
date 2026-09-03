@@ -31,6 +31,10 @@ class l2_scoreboard extends uvm_scoreboard;
   uvm_tlm_analysis_fifo #(axi_seq_item) actual_fifo;
   uvm_tlm_analysis_fifo #(axi_seq_item) expected_fifo;
   uvm_tlm_analysis_fifo #(ace_seq_item) snoop_fifo;
+  // mem_rsp_export needs a downstream sink: an uvm_analysis_export fails
+  // end_of_elaboration ("connection count 0 < min 1") unless it connects to
+  // an imp/fifo itself — a port->export upstream link alone is not counted.
+  uvm_tlm_analysis_fifo #(axi_seq_item) mem_rsp_fifo;
 
   // -------------------------------------------------------------------------
   // Scoreboard statistics
@@ -73,12 +77,14 @@ class l2_scoreboard extends uvm_scoreboard;
     actual_fifo   = new("actual_fifo",   this);
     expected_fifo = new("expected_fifo", this);
     snoop_fifo    = new("snoop_fifo",    this);
+    mem_rsp_fifo  = new("mem_rsp_fifo",  this);
   endfunction
 
   function void connect_phase(uvm_phase phase);
     cpu_req_export.connect(actual_fifo.analysis_export);
     expected_export.connect(expected_fifo.analysis_export);
     snoop_req_export.connect(snoop_fifo.analysis_export);
+    mem_rsp_export.connect(mem_rsp_fifo.analysis_export);
   endfunction
 
   task run_phase(uvm_phase phase);

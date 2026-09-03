@@ -97,8 +97,12 @@ module l2_ecc_check (
   end
 
 `ifdef SIMULATION
-  // Single and double error must not both be asserted
-  ap_ecc_excl: assert final (!(single_error && double_error))
+  // Single and double error must not both be asserted.
+  // The module is combinational with no reset port, so at time 0 (and during
+  // any X-propagation window) the decode of unknown inputs is meaningless —
+  // skip the check whenever data/ecc inputs contain unknowns.
+  ap_ecc_excl: assert final ($isunknown({data_in, stored_check}) ||
+                             !(single_error && double_error))
     else $fatal(0, "ECC: single_error and double_error both asserted");
 
   // NOTE: this module is purely combinational (no clock port), so the original
