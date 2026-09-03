@@ -68,7 +68,7 @@ ifeq ($(TOOL),vcs)
 	    -f sim/vcs/vcs_filelist.f \
 	    $(COV_CFLAGS) \
 	    -o $(SIM_OUT) \
-	    -Mdir sim/vcs/csrc \
+	    -Mdir=sim/vcs/csrc \
 	    -l reports/regression/compile.log
 else ifeq ($(TOOL),xcelium)
 	@echo ">>> [Xcelium] Compiling..."
@@ -318,7 +318,7 @@ gls_scan:
 	    -v libs/28nm/slow_1v0_125c.v \
 	    dft/atpg/gls_atpg_tb.v \
 	    -o sim/vcs/gls_sim \
-	    -Mdir sim/vcs/gls_csrc \
+	    -Mdir=sim/vcs/gls_csrc \
 	    -l reports/dft/gls_compile.log
 	./sim/vcs/gls_sim +SCAN_TEST \
 	    -l reports/dft/gls_sim.log

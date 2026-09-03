@@ -44,7 +44,7 @@ vcs -full64 -sverilog -ntb_opts uvm-1.2 -assert svaext \
     -f sim/vcs/vcs_filelist.f \
     -cm "$CM" \
     $WAVE_CFLAGS \
-    -o "$SIMOUT" -Mdir sim/vcs/csrc \
+    -o "$SIMOUT" -Mdir=sim/vcs/csrc \
     -l "$LOG_DIR/compile.log" || { echo "COMPILE FAILED"; exit 1; }
 
 echo "=== [3/4] Run all tests =============================================="

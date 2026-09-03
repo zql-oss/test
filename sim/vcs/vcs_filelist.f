@@ -5,7 +5,7 @@
 //       are NOT accepted inside -f files — pass them on the
 //       command line (see Makefile / scripts/run_all_vcs.sh).
 // Usage: vcs -full64 -sverilog -ntb_opts uvm-1.2 -assert svaext \
-//            -f sim/vcs/vcs_filelist.f -o sim/vcs/l2_sim -Mdir sim/vcs/csrc
+//            -f sim/vcs/vcs_filelist.f -o sim/vcs/l2_sim -Mdir=sim/vcs/csrc
 // ============================================================
 
 -timescale=1ns/1ps

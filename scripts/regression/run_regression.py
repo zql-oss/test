@@ -85,7 +85,7 @@ class SimRunner:
                 "-timescale=1ns/1ps +vcs+lic+wait "
                 "-f sim/vcs/vcs_filelist.f "
                 "-o sim/vcs/{top} "
-                "-Mdir sim/vcs/csrc"
+                "-Mdir=sim/vcs/csrc"
             ),
             "sim": (
                 "sim/vcs/{top} "
