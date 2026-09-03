@@ -109,7 +109,8 @@ class l2_smoke_write_test extends l2_base_test;
     axi_seq_item item;
     l2_seq_base seq;
     seq = l2_seq_base::type_id::create("smoke_wr");
-    seq.start_item(item = axi_seq_item::type_id::create("wr"));
+    item = axi_seq_item::type_id::create("wr");
+    seq.start_item(item);
     if (!item.randomize() with {
       addr     == 40'h0000_2000;
       is_write == 1'b1;

@@ -41,7 +41,8 @@ module props_cdc_async_fifo #(
 );
 
   // ── Write-domain properties ────────────────────────────────────────────────
-  default clocking wr_cb @(posedge wr_clk); endclocking
+  // (properties use explicit clocking events; a module may declare only one
+  //  default clocking, so none is declared here — LRM 1800-2012 §14.3)
 
   // Write pointer is always a valid Gray code (exactly one bit changes)
   property p_wr_gray_hamming1;
@@ -78,7 +79,6 @@ module props_cdc_async_fifo #(
     else $error("FIFO: write pointer didn't increment");
 
   // ── Read-domain properties ─────────────────────────────────────────────────
-  default clocking rd_cb @(posedge rd_clk); endclocking
 
   // Read Gray code changes by exactly one bit per read
   property p_rd_gray_hamming1;
