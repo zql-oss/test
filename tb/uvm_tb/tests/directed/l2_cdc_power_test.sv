@@ -34,6 +34,7 @@ class l2_cdc_async_fifo_test extends l2_base_test;
   endfunction
 
   virtual task run_test_body(uvm_phase phase);
+    l2_seq_base  seq = l2_seq_base::type_id::create("drv_seq");
     axi_seq_item wr_item, rd_item;
     int N = 64;
 
@@ -48,13 +49,13 @@ class l2_cdc_async_fifo_test extends l2_base_test;
     // Issue N back-to-back cache misses (all go through async FIFO on fill path)
     for (int i = 0; i < N; i++) begin
       wr_item = axi_seq_item::type_id::create($sformatf("cdc_rd_%0d", i));
-      start_item(wr_item);
+      seq.start_item(wr_item);
       assert(wr_item.randomize() with {
         is_write == 1'b0;
         len      == 8'd7;
         addr     == 40'(40'h2000_0000 + i * 40'h1000);  // all misses
       });
-      finish_item(wr_item);
+      seq.finish_item(wr_item);
     end
 
     // Scoreboard verifies all N reads return correct data
@@ -77,6 +78,7 @@ class l2_power_flush_test extends l2_base_test;
   endfunction
 
   virtual task run_test_body(uvm_phase phase);
+    l2_seq_base  seq = l2_seq_base::type_id::create("drv_seq");
     axi_seq_item item;
     int wb_count_before, wb_count_after;
     automatic logic [39:0] test_addr = 40'h0050_0000;
@@ -86,14 +88,14 @@ class l2_power_flush_test extends l2_base_test;
     // Populate cache with DIRTY_LINES dirty lines
     for (int i = 0; i < DIRTY_LINES; i++) begin
       item = axi_seq_item::type_id::create($sformatf("dirty_wr_%0d", i));
-      start_item(item);
+      seq.start_item(item);
       assert(item.randomize() with {
         is_write == 1'b1;
         len      == 8'd0;
         addr     == test_addr + 40'(i * 64);
         wdata[0] == 64'(64'hABCD_EF01_2345_6789 ^ i);
       });
-      finish_item(item);
+      seq.finish_item(item);
     end
 
     `uvm_info("TEST", $sformatf(
@@ -134,13 +136,13 @@ class l2_power_flush_test extends l2_base_test;
     // All previously cached lines should now miss (cache was powered down)
     for (int i = 0; i < 4; i++) begin
       item = axi_seq_item::type_id::create($sformatf("wake_rd_%0d", i));
-      start_item(item);
+      seq.start_item(item);
       assert(item.randomize() with {
         is_write == 1'b0;
         len      == 8'd7;
         addr     == test_addr + 40'(i * 64);
       });
-      finish_item(item);
+      seq.finish_item(item);
 
       // Verify miss: latency > 4 cycles
       if (item.latency <= 4) begin

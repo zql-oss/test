@@ -81,7 +81,22 @@ interface axi4_if #(
     input bresp, bid, bvalid, bready;
   endclocking
 
+  // Memory-side (slave) view: drives response signals, samples requests.
+  // The old single driver_cb marked r*/b*/ready as inputs, so the memory-side
+  // agent could not legally drive them.
+  clocking mem_cb @(posedge clk);
+    default input #1step output #1;
+    output arready, awready, wready;
+    output rdata, rresp, rlast, rid, rvalid;
+    output bresp, bid, bvalid;
+    input  araddr, arlen, arsize, arburst, arid, arvalid;
+    input  awaddr, awlen, awsize, awburst, awid, awvalid;
+    input  wdata, wstrb, wlast, wvalid;
+    input  rready, bready;
+  endclocking
+
   modport driver  (clocking driver_cb,  input clk, rst_n);
+  modport mem     (clocking mem_cb,     input clk, rst_n);
   modport monitor (clocking monitor_cb, input clk, rst_n);
 
 endinterface

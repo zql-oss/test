@@ -332,7 +332,8 @@ module l2_cache_top
     .DEPTH      (MSHR_DEPTH),
     .ADDR_WIDTH (ADDR_WIDTH),
     .DATA_WIDTH (DATA_WIDTH),
-    .ID_WIDTH   (ID_WIDTH)
+    .ID_WIDTH   (ID_WIDTH),
+    .WORDS_PER_LINE (WORDS_PER_LINE)
   ) u_mshr (
     .clk           (clk),
     .rst_n         (rst_n),
@@ -367,9 +368,9 @@ module l2_cache_top
     .fill_addr     (fill_addr),
     .fill_data     (fill_data),
     // write-back
-    .wb_valid      (wb_valid),
-    .wb_addr       (wb_addr),
-    .wb_data       (wb_data),
+    .wb_req_valid  (wb_valid),
+    .wb_req_addr   (wb_addr),
+    .wb_req_data   (wb_data),
     .wb_done       (wb_done),
     // AXI master ports
     .m_axi_araddr  (m_axi_araddr),

@@ -43,20 +43,22 @@ module l2_cache_assertions
 
   // Snoop interface
   input  logic                       ac_valid,
-  input  logic                       ac_ready,
+  input  logic                       ac_ready = '0,
   input  logic [4:0]                 cr_resp,
   input  logic                       cr_valid,
-  input  logic                       cr_ready,
+  input  logic                       cr_ready = '0,
 
-  // MESI state
-  input  mesi_state_t                mesi_state [NUM_SETS-1:0][WAYS-1:0],
+  // MESI state (full set×way map; defaults keep the bind optional when the
+  // top level only exposes per-set state)
+  input  mesi_state_t                mesi_state [NUM_SETS-1:0][WAYS-1:0]
+                                       = '{default: MESI_INVALID},
 
-  // Internal signals
-  input  logic                       cache_hit,
-  input  logic                       miss_pending,
-  input  logic                       wb_pending,
-  input  logic                       upgrade_req_sent,
-  input  logic                       upgrade_ack_received
+  // Internal signals (ports not present in l2_cache_top use safe defaults)
+  input  logic                       cache_hit = '0,
+  input  logic                       miss_pending = '0,
+  input  logic                       wb_pending = '0,
+  input  logic                       upgrade_req_sent = '0,
+  input  logic                       upgrade_ack_received = '0
 );
 
   // ===========================================================================

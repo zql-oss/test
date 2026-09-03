@@ -26,6 +26,7 @@ module l2_mshr
   parameter int unsigned ADDR_WIDTH = 40,
   parameter int unsigned DATA_WIDTH = 64,
   parameter int unsigned ID_WIDTH   = 8,
+  parameter int unsigned WORDS_PER_LINE = 8,
 
   localparam int unsigned PTR_W = $clog2(DEPTH)
 )(
@@ -52,7 +53,7 @@ module l2_mshr
   // -------------------------------------------------------------------------
   input  logic                    fill_valid,
   input  logic [ADDR_WIDTH-1:0]   fill_addr,       // cache-line aligned
-  input  logic [DATA_WIDTH-1:0]   fill_data [],    // full cache line words
+  input  logic [DATA_WIDTH-1:0]   fill_data [WORDS_PER_LINE],  // full cache line words
   output logic [PTR_W-1:0]        fill_entry_idx,  // which MSHR entry matched
 
   // -------------------------------------------------------------------------
@@ -60,7 +61,7 @@ module l2_mshr
   // -------------------------------------------------------------------------
   output logic                    wb_valid,
   output logic [ADDR_WIDTH-1:0]   wb_addr,
-  output logic [DATA_WIDTH-1:0]   wb_data [],
+  output logic [DATA_WIDTH-1:0]   wb_data [WORDS_PER_LINE],
   input  logic                    wb_done,
 
   // -------------------------------------------------------------------------
@@ -68,7 +69,7 @@ module l2_mshr
   // -------------------------------------------------------------------------
   output logic                    resp_valid,
   output logic [ID_WIDTH-1:0]     resp_id,
-  output logic [DATA_WIDTH-1:0]   resp_data [],
+  output logic [DATA_WIDTH-1:0]   resp_data [WORDS_PER_LINE],
   output logic                    resp_is_write,
   input  logic                    resp_accepted,
 

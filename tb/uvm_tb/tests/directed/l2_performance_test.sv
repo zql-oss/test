@@ -87,6 +87,7 @@ class l2_perf_streaming_test extends l2_base_test;
   endfunction
 
   virtual task run_test_body(uvm_phase phase);
+    l2_seq_base  seq = l2_seq_base::type_id::create("drv_seq");
     axi_seq_item item;
     int num_lines = (STREAM_KB * 1024) / 64;
     latency_histogram hist = new();
@@ -97,13 +98,13 @@ class l2_perf_streaming_test extends l2_base_test;
 
     for (int i = 0; i < num_lines; i++) begin
       item = axi_seq_item::type_id::create($sformatf("stream_%0d", i));
-      start_item(item);
+      seq.start_item(item);
       assert(item.randomize() with {
         is_write == 1'b0;
         len      == 8'd7;
         addr     == 40'(40'h0100_0000 + i * 64);
       });
-      finish_item(item);
+      seq.finish_item(item);
 
       hist.record(item.latency);
       if (item.latency <= 4) hits++; else misses++;
@@ -135,10 +136,12 @@ class l2_perf_working_set_test extends l2_base_test;
   endfunction
 
   virtual task run_test_body(uvm_phase phase);
+    l2_seq_base  seq = l2_seq_base::type_id::create("drv_seq");
     axi_seq_item item;
     int num_lines = (WS_KB * 1024) / 64;
     latency_histogram hist = new();
     int hits = 0, total = 0;
+    real hit_rate;
 
     `uvm_info("PERF", $sformatf(
       "Working-set test: %0d KB, %0d passes", WS_KB, PASSES), UVM_NONE)
@@ -146,13 +149,13 @@ class l2_perf_working_set_test extends l2_base_test;
     for (int pass = 0; pass < PASSES; pass++) begin
       for (int i = 0; i < num_lines; i++) begin
         item = axi_seq_item::type_id::create($sformatf("ws_p%0d_l%0d", pass, i));
-        start_item(item);
+        seq.start_item(item);
         assert(item.randomize() with {
           is_write == 1'b0;
           len      == 8'd7;
           addr     == 40'(40'h0200_0000 + i * 64);  // fixed working set
         });
-        finish_item(item);
+        seq.finish_item(item);
 
         hist.record(item.latency);
         if (item.latency <= 4) hits++;
@@ -160,7 +163,7 @@ class l2_perf_working_set_test extends l2_base_test;
       end
     end
 
-    real hit_rate = 100.0 * hits / total;
+    hit_rate = 100.0 * hits / total;
     hist.report("WORKING_SET");
     `uvm_info("PERF", $sformatf(
       "Working-set: hit_rate=%.1f%% (pass 0 = cold, passes 1-%0d = warm)",
@@ -188,6 +191,7 @@ class l2_perf_thrashing_test extends l2_base_test;
   endfunction
 
   virtual task run_test_body(uvm_phase phase);
+    l2_seq_base  seq = l2_seq_base::type_id::create("drv_seq");
     axi_seq_item item;
     int num_lines = (THRASH_KB * 1024) / 64;
     int miss_count = 0, total = 0;
@@ -198,13 +202,13 @@ class l2_perf_thrashing_test extends l2_base_test;
     for (int pass = 0; pass < PASSES; pass++) begin
       for (int i = 0; i < num_lines; i++) begin
         item = axi_seq_item::type_id::create($sformatf("thr_p%0d_l%0d", pass, i));
-        start_item(item);
+        seq.start_item(item);
         assert(item.randomize() with {
           is_write == 1'b0;
           len      == 8'd7;
           addr     == 40'(40'h0400_0000 + i * 64);
         });
-        finish_item(item);
+        seq.finish_item(item);
 
         if (item.latency > 4) miss_count++;
         total++;
@@ -232,6 +236,7 @@ class l2_perf_mixed_rw_test extends l2_base_test;
   endfunction
 
   virtual task run_test_body(uvm_phase phase);
+    l2_seq_base  seq = l2_seq_base::type_id::create("drv_seq");
     axi_seq_item item;
     latency_histogram rd_hist = new(), wr_hist = new();
     int total = 500, rd_hits = 0, wr_hits = 0;
@@ -241,27 +246,27 @@ class l2_perf_mixed_rw_test extends l2_base_test;
     // Warm up cache first
     for (int i = 0; i < 64; i++) begin
       item = axi_seq_item::type_id::create($sformatf("warm_%0d", i));
-      start_item(item);
+      seq.start_item(item);
       assert(item.randomize() with {
         is_write == 1'b0; len == 8'd7;
         addr inside {[40'h0800_0000:40'h081F_FFC0]};
         addr[5:0] == 6'b0;
       });
-      finish_item(item);
+      seq.finish_item(item);
     end
 
     // Mixed traffic
     for (int i = 0; i < total; i++) begin
       bit is_wr = ($urandom_range(0,9) < 3);  // 30% writes
       item = axi_seq_item::type_id::create($sformatf("mix_%0d", i));
-      start_item(item);
+      seq.start_item(item);
       assert(item.randomize() with {
         is_write == is_wr;
         len == (is_wr ? 8'd0 : 8'd7);
         addr inside {[40'h0800_0000:40'h081F_FFC0]};
         addr[5:0] == 6'b0;
       });
-      finish_item(item);
+      seq.finish_item(item);
 
       if (is_wr) begin
         wr_hist.record(item.latency);

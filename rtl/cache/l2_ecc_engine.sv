@@ -101,11 +101,10 @@ module l2_ecc_check (
   ap_ecc_excl: assert final (!(single_error && double_error))
     else $fatal(0, "ECC: single_error and double_error both asserted");
 
-  // After correction, data must match original (tested in UVM ECC test)
-  // Cover: single-bit errors are correctable
-  cp_single: cover property (@($global_clock) single_error);
-  // Cover: double-bit errors are detectable
-  cp_double: cover property (@($global_clock) double_error);
+  // NOTE: this module is purely combinational (no clock port), so the original
+  // `cover property (@($global_clock) ...)` statements were illegal SV and have
+  // been removed; single/double-error coverage is collected by the UVM ECC
+  // test's covergroups instead.
 `endif
 
 endmodule

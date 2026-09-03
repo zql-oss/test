@@ -97,6 +97,7 @@ class l2_axi_burst_length_test extends l2_base_test;
 
   virtual task run_test_body(uvm_phase phase);
     axi_seq_item item;
+    l2_seq_base  seq = l2_seq_base::type_id::create("burst_len");
     int burst_lens[];
     burst_lens = new[4];
     burst_lens = '{0, 3, 7, 15};   // 1, 4, 8, 16 beats
@@ -104,14 +105,14 @@ class l2_axi_burst_length_test extends l2_base_test;
     foreach (burst_lens[i]) begin
       int bl = burst_lens[i];
       item = axi_seq_item::type_id::create($sformatf("burst_rd_len%0d", bl));
-      start_item(item);
+      seq.start_item(item);
       if (!item.randomize() with {
         is_write == 1'b0;
         len      == 8'(bl);
         addr     == 40'(40'h0030_0000 + i * 40'h40);
         addr[5:0]== 6'b0;
       }) `uvm_fatal("TEST", "burst length randomize failed")
-      finish_item(item);
+      seq.finish_item(item);
 
       `uvm_info("TEST", $sformatf(
         "Burst len=%0d: %0d rdata beats returned, RRESP=%0d",
@@ -136,26 +137,27 @@ class l2_axi_id_reuse_test extends l2_base_test;
 
   virtual task run_test_body(uvm_phase phase);
     axi_seq_item item1, item2;
+    l2_seq_base  seq = l2_seq_base::type_id::create("id_reuse");
     logic [7:0] reused_id = 8'h42;
 
     // First transaction with ID 0x42
     item1 = axi_seq_item::type_id::create("rd_id42_1");
-    start_item(item1);
+    seq.start_item(item1);
     assert(item1.randomize() with {
       is_write == 1'b0; len == 8'd7; id == reused_id;
       addr == 40'h0040_0000; addr[5:0] == 6'b0;
     });
-    finish_item(item1);
+    seq.finish_item(item1);
 
     // Wait for R response to complete (item1.latency captured)
     // Second transaction immediately reusing same ID
     item2 = axi_seq_item::type_id::create("rd_id42_2");
-    start_item(item2);
+    seq.start_item(item2);
     assert(item2.randomize() with {
       is_write == 1'b0; len == 8'd7; id == reused_id;
       addr == 40'h0040_0040; addr[5:0] == 6'b0;
     });
-    finish_item(item2);
+    seq.finish_item(item2);
 
     `uvm_info("TEST", $sformatf(
       "ID reuse 0x%0h: txn1 lat=%0d txn2 lat=%0d RRESP=%0d/%0d",
@@ -231,6 +233,7 @@ class l2_snoop_during_miss_test extends l2_base_test;
   virtual task run_test_body(uvm_phase phase);
     axi_seq_item rd_item;
     ace_seq_item snoop_item;
+    l2_seq_base  seq = l2_seq_base::type_id::create("slow_fill");
     logic [39:0] target_addr = 40'h0060_0000;
 
     // Increase memory latency so fill takes a long time
@@ -240,12 +243,12 @@ class l2_snoop_during_miss_test extends l2_base_test;
     fork
       begin : rd_thread
         rd_item = axi_seq_item::type_id::create("snoop_miss_rd");
-        start_item(rd_item);
+        seq.start_item(rd_item);
         assert(rd_item.randomize() with {
           is_write == 1'b0; len == 8'd7;
           addr == target_addr; addr[5:0] == 6'b0;
         });
-        finish_item(rd_item);
+        seq.finish_item(rd_item);
       end
       begin : snoop_thread
         // While fill is in-flight, inject CleanInvalid snoop
@@ -394,9 +397,9 @@ class l2_mesi_ping_pong_test extends l2_base_test;
   function new(string name, uvm_component parent); super.new(name, parent); endfunction
 
   virtual task run_test_body(uvm_phase phase);
+    int iters;
     l2_mesi_ping_pong_seq seq = l2_mesi_ping_pong_seq::type_id::create("pp");
     seq.snoop_sqr = env.snoop_agent.sequencer;
-    int iters;
     if (!$value$plusargs("ITERATIONS=%0d", iters)) iters = 16;
     if (!seq.randomize() with { iterations == iters; })
       `uvm_fatal("TEST", "randomize failed")

@@ -67,7 +67,7 @@ class l2_coverage_collector extends uvm_subscriber #(axi_seq_item);
   // -------------------------------------------------------------------------
   // Covergroup: MESI state transitions
   // -------------------------------------------------------------------------
-  import l2_cache_pkg::mesi_state_t;
+  import l2_cache_pkg::*;
   mesi_state_t prev_mesi_state;
   mesi_state_t curr_mesi_state;
 

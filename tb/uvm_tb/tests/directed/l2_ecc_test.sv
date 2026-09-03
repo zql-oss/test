@@ -22,6 +22,14 @@
 `include "uvm_macros.svh"
 import uvm_pkg::*;
 
+// DPI function prototypes (implemented in C — see tb/dpi/ecc_inject.c)
+// File scope: DPI imports are illegal inside a class body.
+import "DPI-C" function int ecc_inject_fault(
+  input longint addr,
+  input int     bit_position,
+  input bit     double_error
+);
+
 // =============================================================================
 // ECC sequence: write a known pattern, inject bit flip, read back
 // =============================================================================
@@ -80,12 +88,7 @@ class l2_ecc_sequence extends uvm_sequence #(axi_seq_item);
   endtask
 
   // DPI function prototype (implemented in C — see tb/dpi/ecc_inject.c)
-  import "DPI-C" function int ecc_inject_fault(
-    input longint addr,
-    input int     bit_position,
-    input bit     double_error
-  );
-
+  // NOTE: moved to file scope — DPI imports are illegal inside a class body.
 endclass
 
 // =============================================================================
@@ -167,6 +170,7 @@ class l2_ecc_no_false_alarm_test extends l2_base_test;
   endfunction
 
   virtual task run_test_body(uvm_phase phase);
+    l2_seq_base  seq = l2_seq_base::type_id::create("drv_seq");
     axi_seq_item wr_item, rd_item;
 
     // Write and read back 64 different patterns — no fault injection
@@ -176,20 +180,20 @@ class l2_ecc_no_false_alarm_test extends l2_base_test;
 
       // Write
       wr_item = axi_seq_item::type_id::create($sformatf("clean_wr_%0d", i));
-      start_item(wr_item);
+      seq.start_item(wr_item);
       assert(wr_item.randomize() with {
         addr == local::addr; is_write == 1'b1; len == 8'd7;
         foreach (wdata[j]) wdata[j] == local::pat;
       });
-      finish_item(wr_item);
+      seq.finish_item(wr_item);
 
       // Read — RRESP must be OKAY, data must match pat
       rd_item = axi_seq_item::type_id::create($sformatf("clean_rd_%0d", i));
-      start_item(rd_item);
+      seq.start_item(rd_item);
       assert(rd_item.randomize() with {
         addr == local::addr; is_write == 1'b0; len == 8'd0;
       });
-      finish_item(rd_item);
+      seq.finish_item(rd_item);
     end
 
     `uvm_info("TEST", "ECC no-false-alarm test PASSED (64 clean R/W)", UVM_NONE)
@@ -225,6 +229,10 @@ class l2_bist_test extends l2_base_test;
           #(timeout_cycles * 10);  // 10ns per cycle @ 100MHz
           `uvm_fatal("TEST", "BIST timeout — bist_done not received")
         end
+        // BIST signals exist only on the DFT wrapper (l2_cache_dft_top).
+        // The plain l2_cache_top instantiated in tb_top has no BIST ports,
+        // so the hierarchical poll is compiled only for the DFT config.
+`ifdef L2_DFT_TOP
         begin
           @(posedge $root.l2_cache_tb_top.dut.bist_done);
           if (!$root.l2_cache_tb_top.dut.bist_pass) begin
@@ -235,6 +243,12 @@ class l2_bist_test extends l2_base_test;
             `uvm_info("TEST", "BIST PASS: all SRAM macros healthy", UVM_NONE)
           end
         end
+`else
+        begin
+          `uvm_warning("TEST",
+            "BIST check skipped: tb_top instantiates l2_cache_top which has no BIST ports (compile with L2_DFT_TOP + DFT wrapper to enable)")
+        end
+`endif
       join_any
       disable bist_wait;
     end

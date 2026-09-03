@@ -57,6 +57,18 @@ package l2_cache_pkg;
     logic data_transfer;
   } cr_resp_t;
 
+  // CRRESP bit indices (match cr_resp_t field order, LSB = data_transfer)
+  localparam int CR_DATA_TRANSFER = 0;
+  localparam int CR_PASS_DIRTY    = 1;
+
+  // ---------------------------------------------------------------------------
+  // AXI response codes (RRESP / BRESP)
+  // ---------------------------------------------------------------------------
+  localparam logic [1:0] AXI_RESP_OKAY   = 2'b00,
+                         AXI_RESP_EXOKAY = 2'b01,
+                         AXI_RESP_SLVERR = 2'b10,
+                         AXI_RESP_DECERR = 2'b11;
+
   // ---------------------------------------------------------------------------
   // MSHR (Miss Status Holding Register) entry
   // ---------------------------------------------------------------------------

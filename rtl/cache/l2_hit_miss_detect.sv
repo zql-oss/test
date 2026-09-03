@@ -64,22 +64,19 @@ module l2_hit_miss_detect #(
   // =========================================================================
 `ifdef SIMULATION
 
-  // At most one way should hit (MESI protocol maintains this invariant)
-  property p_at_most_one_hit;
-    @($global_clock)
-    $onehot0(hit_way_oh);
-  endproperty
-  ap_one_hit: assert property (p_at_most_one_hit)
-    else $error("HIT_MISS: multi-way hit detected (oh=0b%0b) — MESI violation!",
-                hit_way_oh);
-
-  // hit_way_bin must be zero when no hit
-  property p_no_hit_way_on_miss;
-    @($global_clock)
-    !hit_any |-> (hit_way_bin == '0);
-  endproperty
-  ap_miss_bin: assert property (p_no_hit_way_on_miss)
-    else $error("HIT_MISS: hit_way_bin non-zero on miss");
+  // NOTE: purely combinational module — no clock port, so the invariants are
+  // checked as immediate assertions (equivalent to the original global-clock
+  // properties, which were illegal SV outside a global clocking block).
+  always_comb begin
+    // At most one way should hit (MESI protocol maintains this invariant)
+    assert ($onehot0(hit_way_oh))
+      else $error("HIT_MISS: multi-way hit detected (oh=0b%0b) — MESI violation!",
+                  hit_way_oh);
+    // hit_way_bin must be zero when no hit
+    if (!hit_any)
+      assert (hit_way_bin == '0)
+        else $error("HIT_MISS: hit_way_bin non-zero on miss");
+  end
 
 `endif
 

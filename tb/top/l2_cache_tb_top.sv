@@ -124,12 +124,38 @@ module l2_cache_tb_top;
   );
 
   // ── Bind assertions ─────────────────────────────────────────────────────────
+  // Ports without a same-named signal in l2_cache_top (ac_ready, cr_ready,
+  // mesi_state 2-D map, miss_pending, upgrade_*) take the assertion module's
+  // port defaults.
   bind l2_cache_top l2_cache_assertions #(
     .ADDR_WIDTH (ADDR_WIDTH),
     .DATA_WIDTH (DATA_WIDTH),
-    .ID_WIDTH   (ID_WIDTH),
-    .MSHR_DEPTH (MSHR_DEPTH)
-  ) u_sva (.*);
+    .AXI_ID_W   (ID_WIDTH)
+  ) u_sva (
+    .clk           (clk),
+    .rst_n         (rst_n),
+    .s_axi_arvalid (s_axi_arvalid),
+    .s_axi_arready (s_axi_arready),
+    .s_axi_araddr  (s_axi_araddr),
+    .s_axi_arlen   (s_axi_arlen),
+    .s_axi_rvalid  (s_axi_rvalid),
+    .s_axi_rready  (s_axi_rready),
+    .s_axi_rlast   (s_axi_rlast),
+    .s_axi_rresp   (s_axi_rresp),
+    .s_axi_awvalid (s_axi_awvalid),
+    .s_axi_awready (s_axi_awready),
+    .s_axi_wvalid  (s_axi_wvalid),
+    .s_axi_wready  (s_axi_wready),
+    .s_axi_wlast   (s_axi_wlast),
+    .s_axi_bvalid  (s_axi_bvalid),
+    .s_axi_bready  (s_axi_bready),
+    .s_axi_bresp   (s_axi_bresp),
+    .ac_valid      (ac_valid),
+    .cr_resp       (cr_resp),
+    .cr_valid      (cr_valid),
+    .cache_hit     (cache_hit),
+    .wb_pending    (wb_pending)
+  );
 
   // ── UVM config_db ────────────────────────────────────────────────────────────
   initial begin
@@ -138,8 +164,8 @@ module l2_cache_tb_top;
       null, "*.env.cpu_agent.driver",  "axi_vif",     cpu_if);
     uvm_config_db #(virtual axi4_if.monitor)::set(
       null, "*.env.cpu_agent.monitor", "axi_vif_mon", cpu_if);
-    // Memory agent
-    uvm_config_db #(virtual axi4_if.driver)::set(
+    // Memory agent (memory-side slave view)
+    uvm_config_db #(virtual axi4_if.mem)::set(
       null, "*.env.mem_agent.driver",  "axi_vif",     mem_if);
     uvm_config_db #(virtual axi4_if.monitor)::set(
       null, "*.env.mem_agent.monitor", "axi_vif_mon", mem_if);
@@ -159,10 +185,12 @@ module l2_cache_tb_top;
   end
 
   // ── Waveform dump ─────────────────────────────────────────────────────────────
+  // Portable VCD dump ($vcdplus* are VCS-proprietary and not portable).
+  // Create the waves/ dir from the flow script/Makefile.
   initial begin
     if ($test$plusargs("DUMP_WAVES")) begin
-      $vcdplusfile("waves/l2_cache.vpd");
-      $vcdpluson(0, l2_cache_tb_top);
+      $dumpfile("waves/l2_cache.vcd");
+      $dumpvars(0, l2_cache_tb_top);
     end
   end
 

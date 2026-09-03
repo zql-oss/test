@@ -32,7 +32,7 @@ typedef uvm_sequencer #(axi_seq_item) mem_sequencer;
 class axi_master_driver extends uvm_driver #(axi_seq_item);
   `uvm_component_utils(axi_master_driver)
 
-  virtual axi4_if.driver vif;
+  virtual axi4_if.mem vif;
 
   // Configurable latency (cycles before RVALID is asserted after ARVALID)
   int mem_latency     = 20;
@@ -48,7 +48,7 @@ class axi_master_driver extends uvm_driver #(axi_seq_item);
 
   function void build_phase(uvm_phase phase);
     super.build_phase(phase);
-    if (!uvm_config_db #(virtual axi4_if.driver)::get(
+    if (!uvm_config_db #(virtual axi4_if.mem)::get(
           this, "", "axi_vif", vif))
       `uvm_fatal("MEM_DRV", "No virtual interface for axi_master_driver")
     void'(uvm_config_db #(int)::get(this, "", "mem_latency", mem_latency));
@@ -57,17 +57,17 @@ class axi_master_driver extends uvm_driver #(axi_seq_item);
 
   task run_phase(uvm_phase phase);
     // Idle defaults
-    vif.driver_cb.arready <= 1'b0;
-    vif.driver_cb.rdata   <= '0;
-    vif.driver_cb.rresp   <= 2'b00;
-    vif.driver_cb.rlast   <= 1'b0;
-    vif.driver_cb.rid     <= '0;
-    vif.driver_cb.rvalid  <= 1'b0;
-    vif.driver_cb.awready <= 1'b0;
-    vif.driver_cb.wready  <= 1'b0;
-    vif.driver_cb.bresp   <= 2'b00;
-    vif.driver_cb.bid     <= '0;
-    vif.driver_cb.bvalid  <= 1'b0;
+    vif.mem_cb.arready <= 1'b0;
+    vif.mem_cb.rdata   <= '0;
+    vif.mem_cb.rresp   <= 2'b00;
+    vif.mem_cb.rlast   <= 1'b0;
+    vif.mem_cb.rid     <= '0;
+    vif.mem_cb.rvalid  <= 1'b0;
+    vif.mem_cb.awready <= 1'b0;
+    vif.mem_cb.wready  <= 1'b0;
+    vif.mem_cb.bresp   <= 2'b00;
+    vif.mem_cb.bid     <= '0;
+    vif.mem_cb.bvalid  <= 1'b0;
 
     @(posedge vif.clk iff vif.rst_n);
 
@@ -88,21 +88,21 @@ class axi_master_driver extends uvm_driver #(axi_seq_item);
 
     forever begin
       // ── Accept AR ────────────────────────────────────────────────────
-      @(vif.driver_cb);
-      vif.driver_cb.arready <= 1'b1;
-      do @(vif.driver_cb); while (!vif.driver_cb.arvalid);
+      @(vif.mem_cb);
+      vif.mem_cb.arready <= 1'b1;
+      do @(vif.mem_cb); while (!vif.mem_cb.arvalid);
 
-      req_addr = vif.driver_cb.araddr;
-      req_len  = vif.driver_cb.arlen;
-      req_id   = vif.driver_cb.arid;
+      req_addr = vif.mem_cb.araddr;
+      req_len  = vif.mem_cb.arlen;
+      req_id   = vif.mem_cb.arid;
 
-      vif.driver_cb.arready <= 1'b0;
+      vif.mem_cb.arready <= 1'b0;
 
       // ── Simulated memory latency ──────────────────────────────────────
-      repeat (mem_latency) @(vif.driver_cb);
+      repeat (mem_latency) @(vif.mem_cb);
 
       // ── Return R beats ────────────────────────────────────────────────
-      vif.driver_cb.rvalid <= 1'b1;
+      vif.mem_cb.rvalid <= 1'b1;
       for (int beat = 0; beat <= req_len; beat++) begin
         logic [63:0] rdata_word;
         logic [39:0] beat_addr;
@@ -118,16 +118,16 @@ class axi_master_driver extends uvm_driver #(axi_seq_item);
           rdata_word = $urandom_range(0, 32'hFFFFFFFF) |
                        ({$urandom_range(0, 32'hFFFFFFFF)} << 32);
 
-        vif.driver_cb.rdata  <= rdata_word;
-        vif.driver_cb.rresp  <= 2'b00;   // OKAY
-        vif.driver_cb.rid    <= req_id;
-        vif.driver_cb.rlast  <= (beat == req_len);
+        vif.mem_cb.rdata  <= rdata_word;
+        vif.mem_cb.rresp  <= 2'b00;   // OKAY
+        vif.mem_cb.rid    <= req_id;
+        vif.mem_cb.rlast  <= (beat == req_len);
 
-        do @(vif.driver_cb); while (!vif.driver_cb.rready);
+        do @(vif.mem_cb); while (!vif.mem_cb.rready);
       end
 
-      vif.driver_cb.rvalid <= 1'b0;
-      vif.driver_cb.rlast  <= 1'b0;
+      vif.mem_cb.rvalid <= 1'b0;
+      vif.mem_cb.rlast  <= 1'b0;
 
       `uvm_info("MEM_DRV", $sformatf(
         "Fill served: addr=0x%0h len=%0d lat=%0d", req_addr, req_len, mem_latency),
@@ -146,35 +146,35 @@ class axi_master_driver extends uvm_driver #(axi_seq_item);
 
     forever begin
       // Accept AW
-      @(vif.driver_cb);
-      vif.driver_cb.awready <= 1'b1;
-      do @(vif.driver_cb); while (!vif.driver_cb.awvalid);
-      wr_addr = vif.driver_cb.awaddr;
-      wr_len  = vif.driver_cb.awlen;
-      wr_id   = vif.driver_cb.awid;
-      vif.driver_cb.awready <= 1'b0;
+      @(vif.mem_cb);
+      vif.mem_cb.awready <= 1'b1;
+      do @(vif.mem_cb); while (!vif.mem_cb.awvalid);
+      wr_addr = vif.mem_cb.awaddr;
+      wr_len  = vif.mem_cb.awlen;
+      wr_id   = vif.mem_cb.awid;
+      vif.mem_cb.awready <= 1'b0;
 
       // Accept W beats
       beat_cnt = 0;
-      vif.driver_cb.wready <= 1'b1;
+      vif.mem_cb.wready <= 1'b1;
       forever begin
-        do @(vif.driver_cb); while (!vif.driver_cb.wvalid);
+        do @(vif.mem_cb); while (!vif.mem_cb.wvalid);
         begin
           logic [39:0] word_addr = wr_addr + 40'(beat_cnt * 8);
-          mem_model[word_addr[39:3]] = vif.driver_cb.wdata;
+          mem_model[word_addr[39:3]] = vif.mem_cb.wdata;
         end
-        if (vif.driver_cb.wlast) break;
+        if (vif.mem_cb.wlast) break;
         beat_cnt++;
       end
-      vif.driver_cb.wready <= 1'b0;
+      vif.mem_cb.wready <= 1'b0;
 
       // B response — 2 cycle delay
-      repeat(2) @(vif.driver_cb);
-      vif.driver_cb.bid    <= wr_id;
-      vif.driver_cb.bresp  <= 2'b00;
-      vif.driver_cb.bvalid <= 1'b1;
-      do @(vif.driver_cb); while (!vif.driver_cb.bready);
-      vif.driver_cb.bvalid <= 1'b0;
+      repeat(2) @(vif.mem_cb);
+      vif.mem_cb.bid    <= wr_id;
+      vif.mem_cb.bresp  <= 2'b00;
+      vif.mem_cb.bvalid <= 1'b1;
+      do @(vif.mem_cb); while (!vif.mem_cb.bready);
+      vif.mem_cb.bvalid <= 1'b0;
 
       `uvm_info("MEM_DRV", $sformatf(
         "Write-back accepted: addr=0x%0h beats=%0d", wr_addr, beat_cnt+1),
