@@ -25,34 +25,28 @@ COV_TYPES="line+cond+tgl+branch"
 # ---- [1/4] toolchain -------------------------------------------------------
 # Accept RISCV_GCC only if it is a GCC >= 12 (old < 12 cannot parse
 # '-march=rv32imc_zicsr_zifencei', e.g. Ubuntu jammy ships 10.2).
+# Fallback (no download, offline-friendly): keep the old GCC but pass
+# '-march=rv32imc' via --isa so the zicsr/zifencei suffix is dropped.
 gcc_ok() {
   "$1" --version 2>/dev/null | grep -qE '\b(1[2-9]|[2-9][0-9])\.'
 }
+ISA_ARGS=""
 if [ -n "${RISCV_GCC:-}" ] && gcc_ok "$RISCV_GCC"; then
-  echo "[1/4] RISCV_GCC=$RISCV_GCC"
+  echo "[1/4] RISCV_GCC=$RISCV_GCC (new enough, official march)"
 else
-  if [ -n "${RISCV_GCC:-}" ]; then
-    echo "[1/4] WARN: RISCV_GCC=$RISCV_GCC too old (<12), using xPack GCC instead"
+  if [ -z "${RISCV_GCC:-}" ]; then
+    export RISCV_GCC="riscv64-unknown-elf-gcc"
+    export RISCV_OBJCOPY="riscv64-unknown-elf-objcopy"
   fi
-  if [ ! -x "$GCC_DIR/bin/riscv-none-elf-gcc" ]; then
-    echo "[1/4] Downloading xPack RISC-V GCC $GCC_VER ..."
-    mkdir -p "$TOOL_DIR"
-    if ! wget -q "$GCC_URL" -O "$TOOL_DIR/gcc.tar.gz"; then
-      echo "ERROR: download failed, install a GCC>=12 toolchain and export RISCV_GCC" >&2
-      exit 1
-    fi
-    tar xzf "$TOOL_DIR/gcc.tar.gz" -C "$TOOL_DIR"
-    rm -f "$TOOL_DIR/gcc.tar.gz"
-  fi
-  export RISCV_GCC="$GCC_DIR/bin/riscv-none-elf-gcc"
-  export RISCV_OBJCOPY="$GCC_DIR/bin/riscv-none-elf-objcopy"
-  echo "[1/4] RISCV_GCC=$RISCV_GCC (xPack $GCC_VER)"
+  echo "[1/4] WARN: ${RISCV_GCC:-unset} is GCC<12, using downgraded -march=rv32imc"
+  echo "      (upgrade later: xpack GCC 13.2 or any riscv GCC>=12, then unset RISCV_GCC)"
+  ISA_ARGS="--isa rv32imc --mabi ilp32"
 fi
 
 # ---- [2/4] generate + simulate with coverage ------------------------------
-echo "[2/4] run.py: $TEST x$ITER (vcs, -cm $COV_TYPES)"
+echo "[2/4] run.py: $TEST x$ITER (vcs, -cm $COV_TYPES) $ISA_ARGS"
 python3 run.py --test "$TEST" -i "$ITER" --cov \
-  --cmp_opts "-cm $COV_TYPES"
+  --cmp_opts "-cm $COV_TYPES" $ISA_ARGS
 
 # ---- [3/4] locate .vdb -----------------------------------------------------
 VDB="$(find out_* -type d -name '*.vdb' 2>/dev/null | sort | tail -1)"
