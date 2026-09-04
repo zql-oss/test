@@ -51,6 +51,9 @@ case "$STEPS" in
 esac
 
 # ---- [2/4] generate + simulate with coverage ------------------------------
+# Purge stale vdb (shape conflicts: a vdb created without -cm types keeps
+# only 'line' shapes and won't accept cond/tgl/branch later).
+rm -rf out_*/test.vdb
 echo "[2/4] run.py: $TEST x$ITER (vcs, -cm $COV_TYPES, steps=$STEPS) $ISA_ARGS"
 python3 run.py --test "$TEST" -i "$ITER" --cov --steps "$STEPS" \
   --cmp_opts "-cm $COV_TYPES" $ISA_ARGS
@@ -62,6 +65,8 @@ if [ -z "$VDB" ]; then
   exit 1
 fi
 echo "[3/4] VDB=$VDB"
+echo "[3/4] -cm injected in compile cmd:"
+grep -oE "\-cm [a-z+]+" "$(dirname "$VDB")/compile.log" | head -2 || true
 
 # ---- [4/4] coverage report -------------------------------------------------
 echo "[4/4] urg -> coverage_report/index.html"
