@@ -23,7 +23,17 @@ GCC_URL="https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/do
 COV_TYPES="line+cond+tgl+branch"
 
 # ---- [1/4] toolchain -------------------------------------------------------
-if [ -z "${RISCV_GCC:-}" ]; then
+# Accept RISCV_GCC only if it is a GCC >= 12 (old < 12 cannot parse
+# '-march=rv32imc_zicsr_zifencei', e.g. Ubuntu jammy ships 10.2).
+gcc_ok() {
+  "$1" --version 2>/dev/null | grep -qE '\b(1[2-9]|[2-9][0-9])\.'
+}
+if [ -n "${RISCV_GCC:-}" ] && gcc_ok "$RISCV_GCC"; then
+  echo "[1/4] RISCV_GCC=$RISCV_GCC"
+else
+  if [ -n "${RISCV_GCC:-}" ]; then
+    echo "[1/4] WARN: RISCV_GCC=$RISCV_GCC too old (<12), using xPack GCC instead"
+  fi
   if [ ! -x "$GCC_DIR/bin/riscv-none-elf-gcc" ]; then
     echo "[1/4] Downloading xPack RISC-V GCC $GCC_VER ..."
     mkdir -p "$TOOL_DIR"
@@ -36,8 +46,8 @@ if [ -z "${RISCV_GCC:-}" ]; then
   fi
   export RISCV_GCC="$GCC_DIR/bin/riscv-none-elf-gcc"
   export RISCV_OBJCOPY="$GCC_DIR/bin/riscv-none-elf-objcopy"
+  echo "[1/4] RISCV_GCC=$RISCV_GCC (xPack $GCC_VER)"
 fi
-echo "[1/4] RISCV_GCC=$RISCV_GCC"
 
 # ---- [2/4] generate + simulate with coverage ------------------------------
 echo "[2/4] run.py: $TEST x$ITER (vcs, -cm $COV_TYPES)"
