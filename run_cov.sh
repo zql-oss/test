@@ -23,29 +23,36 @@ GCC_URL="https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/do
 COV_TYPES="line+cond+tgl+branch"
 
 # ---- [1/4] toolchain -------------------------------------------------------
-# Accept RISCV_GCC only if it is a GCC >= 12 (old < 12 cannot parse
-# '-march=rv32imc_zicsr_zifencei', e.g. Ubuntu jammy ships 10.2).
-# Fallback (no download, offline-friendly): keep the old GCC but pass
-# '-march=rv32imc' via --isa so the zicsr/zifencei suffix is dropped.
-gcc_ok() {
-  "$1" --version 2>/dev/null | grep -qE '\b(1[2-9]|[2-9][0-9])\.'
-}
+# vdb code coverage is collected during the generator simulation (step 'gen'),
+# which needs NO RISC-V toolchain. Only for the full flow (gcc_compile/iss_sim)
+# do we need a usable RISC-V GCC >= 12 ('-march=rv32imc_zicsr_zifencei').
+STEPS="${STEPS:-gen}"
 ISA_ARGS=""
-if [ -n "${RISCV_GCC:-}" ] && gcc_ok "$RISCV_GCC"; then
-  echo "[1/4] RISCV_GCC=$RISCV_GCC (new enough, official march)"
-else
-  if [ -z "${RISCV_GCC:-}" ]; then
-    export RISCV_GCC="riscv64-unknown-elf-gcc"
-    export RISCV_OBJCOPY="riscv64-unknown-elf-objcopy"
-  fi
-  echo "[1/4] WARN: ${RISCV_GCC:-unset} is GCC<12, using downgraded -march=rv32imc"
-  echo "      (upgrade later: xpack GCC 13.2 or any riscv GCC>=12, then unset RISCV_GCC)"
-  ISA_ARGS="--isa rv32imc --mabi ilp32"
-fi
+case "$STEPS" in
+  *gcc_compile*|*iss_sim*)
+    gcc_ok() {
+      "$1" --version 2>/dev/null | grep -qE '\b(1[2-9]|[2-9][0-9])\.'
+    }
+    if [ -n "${RISCV_GCC:-}" ] && gcc_ok "$RISCV_GCC"; then
+      echo "[1/4] RISCV_GCC=$RISCV_GCC (new enough, official march)"
+    else
+      if [ -z "${RISCV_GCC:-}" ]; then
+        export RISCV_GCC="riscv64-unknown-elf-gcc"
+        export RISCV_OBJCOPY="riscv64-unknown-elf-objcopy"
+      fi
+      echo "[1/4] WARN: ${RISCV_GCC:-unset} is GCC<12, using downgraded -march=rv32imc"
+      echo "      (upgrade later: xpack GCC 13.2 or any riscv GCC>=12, then unset RISCV_GCC)"
+      ISA_ARGS="--isa rv32imc --mabi ilp32"
+    fi
+    ;;
+  *)
+    echo "[1/4] Gen-only flow (STEPS=$STEPS): no RISC-V toolchain needed"
+    ;;
+esac
 
 # ---- [2/4] generate + simulate with coverage ------------------------------
-echo "[2/4] run.py: $TEST x$ITER (vcs, -cm $COV_TYPES) $ISA_ARGS"
-python3 run.py --test "$TEST" -i "$ITER" --cov \
+echo "[2/4] run.py: $TEST x$ITER (vcs, -cm $COV_TYPES, steps=$STEPS) $ISA_ARGS"
+python3 run.py --test "$TEST" -i "$ITER" --cov --steps "$STEPS" \
   --cmp_opts "-cm $COV_TYPES" $ISA_ARGS
 
 # ---- [3/4] locate .vdb -----------------------------------------------------
