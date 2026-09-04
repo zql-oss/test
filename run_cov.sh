@@ -51,9 +51,9 @@ case "$STEPS" in
 esac
 
 # ---- [2/4] generate + simulate with coverage ------------------------------
-# Purge stale vdb (shape conflicts: a vdb created without -cm types keeps
-# only 'line' shapes and won't accept cond/tgl/branch later).
-rm -rf out_*/test.vdb
+# Purge stale vdb + vcs build cache (shape conflicts and incremental-compile
+# leftovers can silently date the coverage build).
+rm -rf out_*/test.vdb out_*/vcs_simv.csrc out_*/vcs_simv out_*/vcs_simv.daidir
 echo "[2/4] run.py: $TEST x$ITER (vcs, -cm $COV_TYPES, steps=$STEPS) $ISA_ARGS"
 python3 run.py --test "$TEST" -i "$ITER" --cov --steps "$STEPS" \
   --cmp_opts "-cm $COV_TYPES" $ISA_ARGS
