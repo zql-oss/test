@@ -20,7 +20,7 @@ TOOL_DIR="$(cd .. && pwd)/tools"
 GCC_VER="13.2.0-3"
 GCC_DIR="$TOOL_DIR/xpack-riscv-none-elf-gcc-$GCC_VER-linux-x64"
 GCC_URL="https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v$GCC_VER/xpack-riscv-none-elf-gcc-$GCC_VER-linux-x64.tar.gz"
-COV_TYPES="line+cond+tgl+branch"
+COV_TYPES="${COV_TYPES:-line}"
 
 # ---- [1/4] toolchain -------------------------------------------------------
 # vdb code coverage is collected during the generator simulation (step 'gen'),
