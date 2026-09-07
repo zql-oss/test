@@ -20,9 +20,10 @@ VERDI=Verdi-Ultra -f filelist.f   \
 # Coverage: VCS must see -cm at BOTH compile time and run time.
 # Compile on O-2018.09-SP2 requires '+' separated types
 # (line,cond,tgl,branch,fsm,assert: 'line,cond,...' comma form FAILS).
+# Use default cm_dir (= current dir -> vdb name 'simv.vdb');
+# 'urg -dir +./cov' style paths are NOT accepted by this URG version.
 # ------------------------------------------------------------------
 COV_TYPES = line+cond+tgl+branch+fsm+assert
-CM_DIR    = +./cov
 
 # Default test program: prebuilt riscv-tests binary in ../tests/isa/generated
 # The TB waits x26==1 (tohost) then x27==1 -> TEST_PASS.
@@ -35,16 +36,16 @@ vcs:
 	$(VCS)
 
 run: inst.data
-	./simv -cm $(COV_TYPES) -cm_dir $(CM_DIR)
+	./simv -cm $(COV_TYPES)
 
 # generate ROM init file from test binary (original flow script)
 inst.data: $(MEM_SRC)
 	python3 generate_inst_data.py $(MEM_SRC)
 
-# merge all coverage in cov/ into HTML report + terminal summary
+# merge all coverage in simv.vdb into HTML report + terminal summary
 merge:
 	rm -rf cov_report
-	urg -dir $(CM_DIR) -report cov_report -64bit
+	urg -dir simv.vdb -report cov_report -64bit
 	@echo "=== terminal summary (see cov_report/html/index.html for details) ==="
 	@cat cov_report/mergereport.txt cov_report/grp/summary.txt 2>/dev/null || true
 
