@@ -9,7 +9,8 @@ VCS	=	vcs +v2k  -timescale=1ns/1ps	\
 			-negdelay	\
 			+neg_tchk	\
 			-l vcs.log \
-			+incdir+../rtl/header
+			+incdir+../rtl/header \
+			-cm $(COV_TYPES)
 
 VERDI=Verdi-Ultra -f filelist.f   \
 		-ssf tinyriscv_soc.fsdb    \
