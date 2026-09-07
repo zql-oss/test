@@ -1,0 +1,938 @@
+.
+├── doc
+│   ├── i2c.md
+│   └── simu.md
+├── figs
+│   ├── bpu_1.png
+│   ├── bpu_2.png
+│   ├── i2c_1st_bit.png
+│   ├── i2c_byte_format.png
+│   ├── i2c_complete.png
+│   ├── i2c_example.png
+│   ├── i2c_mode1.png
+│   ├── i2c_mode2.png
+│   ├── i2c_mode3.png
+│   ├── i2c.png
+│   ├── i2c_timing1.png
+│   ├── i2c_timing2.png
+│   ├── if.png
+│   ├── lm75_timing.png
+│   ├── pwm.png
+│   ├── rt.png
+│   └── send_id.png
+├── fpga
+│   └── AX7035_tingriscv_soc_top.xdc
+├── .gitignore
+├── LICENSE
+├── project_structure.txt
+├── README.md
+├── rtl
+│   ├── core
+│   │   ├── bpu.v
+│   │   ├── clint.v
+│   │   ├── csr_reg.v
+│   │   ├── ctrl.v
+│   │   ├── div.v
+│   │   ├── ex.v
+│   │   ├── id_ex.v
+│   │   ├── id.v
+│   │   ├── if_id.v
+│   │   ├── pc_reg.v
+│   │   ├── pre_id.v
+│   │   ├── regs.v
+│   │   ├── rib.v
+│   │   └── tinyriscv.v
+│   ├── debug
+│   │   ├── jtag_dm.v
+│   │   ├── jtag_driver.v
+│   │   ├── jtag_top.v
+│   │   └── uart_debug.v
+│   ├── header
+│   │   └── defines.vh
+│   ├── perips
+│   │   ├── gpio.v
+│   │   ├── i2c.v
+│   │   ├── pwm.v
+│   │   ├── ram.v
+│   │   ├── rom.v
+│   │   ├── spi.v
+│   │   ├── timer.v
+│   │   └── uart.v
+│   ├── soc
+│   │   └── tinyriscv_soc_top.v
+│   └── utils
+│       ├── full_handshake_rx.v
+│       ├── full_handshake_tx.v
+│       ├── gen_buf.v
+│       ├── gen_dff.v
+│       └── gen_pulse.v
+├── sim
+│   ├── compile_rtl.py
+│   ├── compliance_test
+│   │   ├── compliance_test.py
+│   │   ├── .gitignore
+│   │   ├── README.md
+│   │   └── uvsim
+│   ├── generate_inst_data_and_sim.py
+│   ├── .gitignore
+│   ├── inst.data
+│   ├── README.md
+│   ├── sim_default_nowave.py
+│   ├── sim_new_nowave.py
+│   ├── test_all_isa.py
+│   └── uvsim
+├── tb
+│   ├── compliance_test
+│   │   └── tinyriscv_soc_tb.v
+│   ├── README.md
+│   ├── tinyriscv_soc_tb.v
+│   ├── tinyriscv_soc_tb.v.bak
+│   └── tinyriscv_soc_tb_vcs.v
+├── tests
+│   ├── example
+│   │   ├── bpu
+│   │   │   ├── .gitignore
+│   │   │   ├── main.c
+│   │   │   ├── Makefile
+│   │   │   └── README.md
+│   │   ├── common.mk
+│   │   ├── coremark
+│   │   │   ├── core_list_join.c
+│   │   │   ├── core_main.c
+│   │   │   ├── coremark.h
+│   │   │   ├── core_matrix.c
+│   │   │   ├── core_portme.c
+│   │   │   ├── core_portme.h
+│   │   │   ├── core_state.c
+│   │   │   ├── core_util.c
+│   │   │   ├── .gitignore
+│   │   │   ├── Makefile
+│   │   │   └── README.md
+│   │   ├── FreeRTOS
+│   │   │   ├── Demo
+│   │   │   │   └── tinyriscv_GCC
+│   │   │   │       ├── blinky_demo
+│   │   │   │       │   └── main_blinky.c
+│   │   │   │       ├── FreeRTOSConfig.h
+│   │   │   │       ├── .gitignore
+│   │   │   │       ├── main.c
+│   │   │   │       └── Makefile
+│   │   │   └── Source
+│   │   │       ├── croutine.c
+│   │   │       ├── event_groups.c
+│   │   │       ├── include
+│   │   │       │   ├── atomic.h
+│   │   │       │   ├── croutine.h
+│   │   │       │   ├── deprecated_definitions.h
+│   │   │       │   ├── event_groups.h
+│   │   │       │   ├── FreeRTOS.h
+│   │   │       │   ├── list.h
+│   │   │       │   ├── message_buffer.h
+│   │   │       │   ├── mpu_prototypes.h
+│   │   │       │   ├── mpu_wrappers.h
+│   │   │       │   ├── portable.h
+│   │   │       │   ├── projdefs.h
+│   │   │       │   ├── queue.h
+│   │   │       │   ├── semphr.h
+│   │   │       │   ├── stack_macros.h
+│   │   │       │   ├── StackMacros.h
+│   │   │       │   ├── stdint.readme
+│   │   │       │   ├── stream_buffer.h
+│   │   │       │   ├── task.h
+│   │   │       │   └── timers.h
+│   │   │       ├── list.c
+│   │   │       ├── portable
+│   │   │       │   ├── MemMang
+│   │   │       │   │   ├── heap_1.c
+│   │   │       │   │   ├── heap_2.c
+│   │   │       │   │   ├── heap_3.c
+│   │   │       │   │   ├── heap_4.c
+│   │   │       │   │   └── heap_5.c
+│   │   │       │   └── RISC-V
+│   │   │       │       ├── freertos_risc_v_chip_specific_extensions.h
+│   │   │       │       ├── portASM.S
+│   │   │       │       ├── port.c
+│   │   │       │       └── portmacro.h
+│   │   │       ├── queue.c
+│   │   │       ├── readme.txt
+│   │   │       ├── stream_buffer.c
+│   │   │       ├── tasks.c
+│   │   │       └── timers.c
+│   │   ├── .gitignore
+│   │   ├── gpio
+│   │   │   ├── .gitignore
+│   │   │   ├── main.c
+│   │   │   ├── Makefile
+│   │   │   └── README.md
+│   │   ├── gpio_16
+│   │   │   ├── .gitignore
+│   │   │   ├── main.c
+│   │   │   ├── Makefile
+│   │   │   └── README.md
+│   │   ├── i2c
+│   │   │   ├── .gitignore
+│   │   │   ├── main.c
+│   │   │   └── Makefile
+│   │   ├── include
+│   │   │   ├── flash_n25q.h
+│   │   │   ├── gpio.h
+│   │   │   ├── i2c.h
+│   │   │   ├── pwm.h
+│   │   │   ├── spi.h
+│   │   │   ├── timer.h
+│   │   │   ├── uart.h
+│   │   │   ├── utils.h
+│   │   │   └── xprintf.h
+│   │   ├── init.c
+│   │   ├── led
+│   │   │   ├── .gitignore
+│   │   │   ├── led.c
+│   │   │   └── Makefile
+│   │   ├── lib
+│   │   │   ├── flash_n25q.c
+│   │   │   ├── .gitignore
+│   │   │   ├── spi.c
+│   │   │   ├── uart.c
+│   │   │   ├── utils.c
+│   │   │   └── xprintf.c
+│   │   ├── link.lds
+│   │   ├── pwm
+│   │   │   ├── .gitignore
+│   │   │   ├── main.c
+│   │   │   └── Makefile
+│   │   ├── pwm_test
+│   │   │   ├── .gitignore
+│   │   │   ├── main.c
+│   │   │   └── Makefile
+│   │   ├── README.md
+│   │   ├── sID
+│   │   │   ├── .gitignore
+│   │   │   ├── main.c
+│   │   │   └── Makefile
+│   │   ├── simple
+│   │   │   ├── .gitignore
+│   │   │   ├── main.c
+│   │   │   ├── Makefile
+│   │   │   └── README.md
+│   │   ├── spi_master
+│   │   │   ├── .gitignore
+│   │   │   ├── main.c
+│   │   │   ├── Makefile
+│   │   │   └── README.md
+│   │   ├── start.S
+│   │   ├── timer_int
+│   │   │   ├── .gitignore
+│   │   │   ├── main.c
+│   │   │   ├── Makefile
+│   │   │   └── README.md
+│   │   ├── trap_entry.S
+│   │   ├── trap_handler.c
+│   │   ├── uart_rx
+│   │   │   ├── .gitignore
+│   │   │   ├── main.c
+│   │   │   ├── Makefile
+│   │   │   └── README.md
+│   │   └── uart_tx
+│   │       ├── .gitignore
+│   │       ├── main.c
+│   │       ├── Makefile
+│   │       └── README.md
+│   ├── isa
+│   │   ├── generated
+│   │   │   ├── rv32ui-p-add
+│   │   │   ├── rv32ui-p-add.bin
+│   │   │   ├── rv32ui-p-add.dump
+│   │   │   ├── rv32ui-p-addi
+│   │   │   ├── rv32ui-p-addi.bin
+│   │   │   ├── rv32ui-p-addi.dump
+│   │   │   ├── rv32ui-p-addi.verilog
+│   │   │   ├── rv32ui-p-add.verilog
+│   │   │   ├── rv32ui-p-and
+│   │   │   ├── rv32ui-p-and.bin
+│   │   │   ├── rv32ui-p-and.dump
+│   │   │   ├── rv32ui-p-andi
+│   │   │   ├── rv32ui-p-andi.bin
+│   │   │   ├── rv32ui-p-andi.dump
+│   │   │   ├── rv32ui-p-andi.verilog
+│   │   │   ├── rv32ui-p-and.verilog
+│   │   │   ├── rv32ui-p-auipc
+│   │   │   ├── rv32ui-p-auipc.bin
+│   │   │   ├── rv32ui-p-auipc.dump
+│   │   │   ├── rv32ui-p-auipc.verilog
+│   │   │   ├── rv32ui-p-beq
+│   │   │   ├── rv32ui-p-beq.bin
+│   │   │   ├── rv32ui-p-beq.dump
+│   │   │   ├── rv32ui-p-beq.verilog
+│   │   │   ├── rv32ui-p-bge
+│   │   │   ├── rv32ui-p-bge.bin
+│   │   │   ├── rv32ui-p-bge.dump
+│   │   │   ├── rv32ui-p-bgeu
+│   │   │   ├── rv32ui-p-bgeu.bin
+│   │   │   ├── rv32ui-p-bgeu.dump
+│   │   │   ├── rv32ui-p-bgeu.verilog
+│   │   │   ├── rv32ui-p-bge.verilog
+│   │   │   ├── rv32ui-p-blt
+│   │   │   ├── rv32ui-p-blt.bin
+│   │   │   ├── rv32ui-p-blt.dump
+│   │   │   ├── rv32ui-p-bltu
+│   │   │   ├── rv32ui-p-bltu.bin
+│   │   │   ├── rv32ui-p-bltu.dump
+│   │   │   ├── rv32ui-p-bltu.verilog
+│   │   │   ├── rv32ui-p-blt.verilog
+│   │   │   ├── rv32ui-p-bne
+│   │   │   ├── rv32ui-p-bne.bin
+│   │   │   ├── rv32ui-p-bne.dump
+│   │   │   ├── rv32ui-p-bne.verilog
+│   │   │   ├── rv32ui-p-fence_i
+│   │   │   ├── rv32ui-p-fence_i.bin
+│   │   │   ├── rv32ui-p-fence_i.dump
+│   │   │   ├── rv32ui-p-fence_i.verilog
+│   │   │   ├── rv32ui-p-jal
+│   │   │   ├── rv32ui-p-jal.bin
+│   │   │   ├── rv32ui-p-jal.dump
+│   │   │   ├── rv32ui-p-jalr
+│   │   │   ├── rv32ui-p-jalr.bin
+│   │   │   ├── rv32ui-p-jalr.dump
+│   │   │   ├── rv32ui-p-jalr.verilog
+│   │   │   ├── rv32ui-p-jal.verilog
+│   │   │   ├── rv32ui-p-lb
+│   │   │   ├── rv32ui-p-lb.bin
+│   │   │   ├── rv32ui-p-lb.dump
+│   │   │   ├── rv32ui-p-lbu
+│   │   │   ├── rv32ui-p-lbu.bin
+│   │   │   ├── rv32ui-p-lbu.dump
+│   │   │   ├── rv32ui-p-lbu.verilog
+│   │   │   ├── rv32ui-p-lb.verilog
+│   │   │   ├── rv32ui-p-lh
+│   │   │   ├── rv32ui-p-lh.bin
+│   │   │   ├── rv32ui-p-lh.dump
+│   │   │   ├── rv32ui-p-lhu
+│   │   │   ├── rv32ui-p-lhu.bin
+│   │   │   ├── rv32ui-p-lhu.dump
+│   │   │   ├── rv32ui-p-lhu.verilog
+│   │   │   ├── rv32ui-p-lh.verilog
+│   │   │   ├── rv32ui-p-lui
+│   │   │   ├── rv32ui-p-lui.bin
+│   │   │   ├── rv32ui-p-lui.dump
+│   │   │   ├── rv32ui-p-lui.verilog
+│   │   │   ├── rv32ui-p-lw
+│   │   │   ├── rv32ui-p-lw.bin
+│   │   │   ├── rv32ui-p-lw.dump
+│   │   │   ├── rv32ui-p-lw.verilog
+│   │   │   ├── rv32ui-p-or
+│   │   │   ├── rv32ui-p-or.bin
+│   │   │   ├── rv32ui-p-or.dump
+│   │   │   ├── rv32ui-p-ori
+│   │   │   ├── rv32ui-p-ori.bin
+│   │   │   ├── rv32ui-p-ori.dump
+│   │   │   ├── rv32ui-p-ori.verilog
+│   │   │   ├── rv32ui-p-or.verilog
+│   │   │   ├── rv32ui-p-sb
+│   │   │   ├── rv32ui-p-sb.bin
+│   │   │   ├── rv32ui-p-sb.dump
+│   │   │   ├── rv32ui-p-sb.verilog
+│   │   │   ├── rv32ui-p-sh
+│   │   │   ├── rv32ui-p-sh.bin
+│   │   │   ├── rv32ui-p-sh.dump
+│   │   │   ├── rv32ui-p-sh.verilog
+│   │   │   ├── rv32ui-p-simple
+│   │   │   ├── rv32ui-p-simple.bin
+│   │   │   ├── rv32ui-p-simple.dump
+│   │   │   ├── rv32ui-p-simple.verilog
+│   │   │   ├── rv32ui-p-sll
+│   │   │   ├── rv32ui-p-sll.bin
+│   │   │   ├── rv32ui-p-sll.dump
+│   │   │   ├── rv32ui-p-slli
+│   │   │   ├── rv32ui-p-slli.bin
+│   │   │   ├── rv32ui-p-slli.dump
+│   │   │   ├── rv32ui-p-slli.verilog
+│   │   │   ├── rv32ui-p-sll.verilog
+│   │   │   ├── rv32ui-p-slt
+│   │   │   ├── rv32ui-p-slt.bin
+│   │   │   ├── rv32ui-p-slt.dump
+│   │   │   ├── rv32ui-p-slti
+│   │   │   ├── rv32ui-p-slti.bin
+│   │   │   ├── rv32ui-p-slti.dump
+│   │   │   ├── rv32ui-p-sltiu
+│   │   │   ├── rv32ui-p-sltiu.bin
+│   │   │   ├── rv32ui-p-sltiu.dump
+│   │   │   ├── rv32ui-p-sltiu.verilog
+│   │   │   ├── rv32ui-p-slti.verilog
+│   │   │   ├── rv32ui-p-sltu
+│   │   │   ├── rv32ui-p-sltu.bin
+│   │   │   ├── rv32ui-p-sltu.dump
+│   │   │   ├── rv32ui-p-sltu.verilog
+│   │   │   ├── rv32ui-p-slt.verilog
+│   │   │   ├── rv32ui-p-sra
+│   │   │   ├── rv32ui-p-sra.bin
+│   │   │   ├── rv32ui-p-sra.dump
+│   │   │   ├── rv32ui-p-srai
+│   │   │   ├── rv32ui-p-srai.bin
+│   │   │   ├── rv32ui-p-srai.dump
+│   │   │   ├── rv32ui-p-srai.verilog
+│   │   │   ├── rv32ui-p-sra.verilog
+│   │   │   ├── rv32ui-p-srl
+│   │   │   ├── rv32ui-p-srl.bin
+│   │   │   ├── rv32ui-p-srl.dump
+│   │   │   ├── rv32ui-p-srli
+│   │   │   ├── rv32ui-p-srli.bin
+│   │   │   ├── rv32ui-p-srli.dump
+│   │   │   ├── rv32ui-p-srli.verilog
+│   │   │   ├── rv32ui-p-srl.verilog
+│   │   │   ├── rv32ui-p-sub
+│   │   │   ├── rv32ui-p-sub.bin
+│   │   │   ├── rv32ui-p-sub.dump
+│   │   │   ├── rv32ui-p-sub.verilog
+│   │   │   ├── rv32ui-p-sw
+│   │   │   ├── rv32ui-p-sw.bin
+│   │   │   ├── rv32ui-p-sw.dump
+│   │   │   ├── rv32ui-p-sw.verilog
+│   │   │   ├── rv32ui-p-xor
+│   │   │   ├── rv32ui-p-xor.bin
+│   │   │   ├── rv32ui-p-xor.dump
+│   │   │   ├── rv32ui-p-xori
+│   │   │   ├── rv32ui-p-xori.bin
+│   │   │   ├── rv32ui-p-xori.dump
+│   │   │   ├── rv32ui-p-xori.verilog
+│   │   │   ├── rv32ui-p-xor.verilog
+│   │   │   ├── rv32um-p-div
+│   │   │   ├── rv32um-p-div.bin
+│   │   │   ├── rv32um-p-div.dump
+│   │   │   ├── rv32um-p-divu
+│   │   │   ├── rv32um-p-divu.bin
+│   │   │   ├── rv32um-p-divu.dump
+│   │   │   ├── rv32um-p-divu.verilog
+│   │   │   ├── rv32um-p-div.verilog
+│   │   │   ├── rv32um-p-mul
+│   │   │   ├── rv32um-p-mul.bin
+│   │   │   ├── rv32um-p-mul.dump
+│   │   │   ├── rv32um-p-mulh
+│   │   │   ├── rv32um-p-mulh.bin
+│   │   │   ├── rv32um-p-mulh.dump
+│   │   │   ├── rv32um-p-mulhsu
+│   │   │   ├── rv32um-p-mulhsu.bin
+│   │   │   ├── rv32um-p-mulhsu.dump
+│   │   │   ├── rv32um-p-mulhsu.verilog
+│   │   │   ├── rv32um-p-mulhu
+│   │   │   ├── rv32um-p-mulhu.bin
+│   │   │   ├── rv32um-p-mulhu.dump
+│   │   │   ├── rv32um-p-mulhu.verilog
+│   │   │   ├── rv32um-p-mulh.verilog
+│   │   │   ├── rv32um-p-mul.verilog
+│   │   │   ├── rv32um-p-rem
+│   │   │   ├── rv32um-p-rem.bin
+│   │   │   ├── rv32um-p-rem.dump
+│   │   │   ├── rv32um-p-remu
+│   │   │   ├── rv32um-p-remu.bin
+│   │   │   ├── rv32um-p-remu.dump
+│   │   │   ├── rv32um-p-remu.verilog
+│   │   │   └── rv32um-p-rem.verilog
+│   │   ├── link.ld
+│   │   ├── Makefile
+│   │   ├── README.md
+│   │   ├── riscv_test.h
+│   │   ├── rv32ui
+│   │   │   ├── addi.S
+│   │   │   ├── add.S
+│   │   │   ├── andi.S
+│   │   │   ├── and.S
+│   │   │   ├── auipc.S
+│   │   │   ├── beq.S
+│   │   │   ├── bge.S
+│   │   │   ├── bgeu.S
+│   │   │   ├── blt.S
+│   │   │   ├── bltu.S
+│   │   │   ├── bne.S
+│   │   │   ├── fence_i.S
+│   │   │   ├── jalr.S
+│   │   │   ├── jal.S
+│   │   │   ├── lb.S
+│   │   │   ├── lbu.S
+│   │   │   ├── ld.S
+│   │   │   ├── lh.S
+│   │   │   ├── lhu.S
+│   │   │   ├── lui.S
+│   │   │   ├── lw.S
+│   │   │   ├── lwu.S
+│   │   │   ├── Makefrag
+│   │   │   ├── ori.S
+│   │   │   ├── or.S
+│   │   │   ├── sb.S
+│   │   │   ├── sd.S
+│   │   │   ├── sh.S
+│   │   │   ├── simple.S
+│   │   │   ├── slli.S
+│   │   │   ├── sll.S
+│   │   │   ├── slti.S
+│   │   │   ├── sltiu.S
+│   │   │   ├── slt.S
+│   │   │   ├── sltu.S
+│   │   │   ├── srai.S
+│   │   │   ├── sra.S
+│   │   │   ├── srli.S
+│   │   │   ├── srl.S
+│   │   │   ├── sub.S
+│   │   │   ├── sw.S
+│   │   │   ├── xori.S
+│   │   │   └── xor.S
+│   │   ├── rv32um
+│   │   │   ├── div.S
+│   │   │   ├── divu.S
+│   │   │   ├── Makefrag
+│   │   │   ├── mulh.S
+│   │   │   ├── mulhsu.S
+│   │   │   ├── mulhu.S
+│   │   │   ├── mul.S
+│   │   │   ├── rem.S
+│   │   │   └── remu.S
+│   │   └── test_macros.h
+│   ├── README.md
+│   ├── riscv-compliance
+│   │   ├── build_generated
+│   │   │   ├── rv32i
+│   │   │   │   ├── I-ADD-01.elf
+│   │   │   │   ├── I-ADD-01.elf.bin
+│   │   │   │   ├── I-ADD-01.elf.objdump
+│   │   │   │   ├── I-ADDI-01.elf
+│   │   │   │   ├── I-ADDI-01.elf.bin
+│   │   │   │   ├── I-ADDI-01.elf.objdump
+│   │   │   │   ├── I-AND-01.elf
+│   │   │   │   ├── I-AND-01.elf.bin
+│   │   │   │   ├── I-AND-01.elf.objdump
+│   │   │   │   ├── I-ANDI-01.elf
+│   │   │   │   ├── I-ANDI-01.elf.bin
+│   │   │   │   ├── I-ANDI-01.elf.objdump
+│   │   │   │   ├── I-AUIPC-01.elf
+│   │   │   │   ├── I-AUIPC-01.elf.bin
+│   │   │   │   ├── I-AUIPC-01.elf.objdump
+│   │   │   │   ├── I-BEQ-01.elf
+│   │   │   │   ├── I-BEQ-01.elf.bin
+│   │   │   │   ├── I-BEQ-01.elf.objdump
+│   │   │   │   ├── I-BGE-01.elf
+│   │   │   │   ├── I-BGE-01.elf.bin
+│   │   │   │   ├── I-BGE-01.elf.objdump
+│   │   │   │   ├── I-BGEU-01.elf
+│   │   │   │   ├── I-BGEU-01.elf.bin
+│   │   │   │   ├── I-BGEU-01.elf.objdump
+│   │   │   │   ├── I-BLT-01.elf
+│   │   │   │   ├── I-BLT-01.elf.bin
+│   │   │   │   ├── I-BLT-01.elf.objdump
+│   │   │   │   ├── I-BLTU-01.elf
+│   │   │   │   ├── I-BLTU-01.elf.bin
+│   │   │   │   ├── I-BLTU-01.elf.objdump
+│   │   │   │   ├── I-BNE-01.elf
+│   │   │   │   ├── I-BNE-01.elf.bin
+│   │   │   │   ├── I-BNE-01.elf.objdump
+│   │   │   │   ├── I-DELAY_SLOTS-01.elf
+│   │   │   │   ├── I-DELAY_SLOTS-01.elf.bin
+│   │   │   │   ├── I-DELAY_SLOTS-01.elf.objdump
+│   │   │   │   ├── I-EBREAK-01.elf
+│   │   │   │   ├── I-EBREAK-01.elf.bin
+│   │   │   │   ├── I-EBREAK-01.elf.objdump
+│   │   │   │   ├── I-ECALL-01.elf
+│   │   │   │   ├── I-ECALL-01.elf.bin
+│   │   │   │   ├── I-ECALL-01.elf.objdump
+│   │   │   │   ├── I-ENDIANESS-01.elf
+│   │   │   │   ├── I-ENDIANESS-01.elf.bin
+│   │   │   │   ├── I-ENDIANESS-01.elf.objdump
+│   │   │   │   ├── I-IO-01.elf
+│   │   │   │   ├── I-IO-01.elf.bin
+│   │   │   │   ├── I-IO-01.elf.objdump
+│   │   │   │   ├── I-JAL-01.elf
+│   │   │   │   ├── I-JAL-01.elf.bin
+│   │   │   │   ├── I-JAL-01.elf.objdump
+│   │   │   │   ├── I-JALR-01.elf
+│   │   │   │   ├── I-JALR-01.elf.bin
+│   │   │   │   ├── I-JALR-01.elf.objdump
+│   │   │   │   ├── I-LB-01.elf
+│   │   │   │   ├── I-LB-01.elf.bin
+│   │   │   │   ├── I-LB-01.elf.objdump
+│   │   │   │   ├── I-LBU-01.elf
+│   │   │   │   ├── I-LBU-01.elf.bin
+│   │   │   │   ├── I-LBU-01.elf.objdump
+│   │   │   │   ├── I-LH-01.elf
+│   │   │   │   ├── I-LH-01.elf.bin
+│   │   │   │   ├── I-LH-01.elf.objdump
+│   │   │   │   ├── I-LHU-01.elf
+│   │   │   │   ├── I-LHU-01.elf.bin
+│   │   │   │   ├── I-LHU-01.elf.objdump
+│   │   │   │   ├── I-LUI-01.elf
+│   │   │   │   ├── I-LUI-01.elf.bin
+│   │   │   │   ├── I-LUI-01.elf.objdump
+│   │   │   │   ├── I-LW-01.elf
+│   │   │   │   ├── I-LW-01.elf.bin
+│   │   │   │   ├── I-LW-01.elf.objdump
+│   │   │   │   ├── I-MISALIGN_JMP-01.elf
+│   │   │   │   ├── I-MISALIGN_JMP-01.elf.bin
+│   │   │   │   ├── I-MISALIGN_JMP-01.elf.objdump
+│   │   │   │   ├── I-MISALIGN_LDST-01.elf
+│   │   │   │   ├── I-MISALIGN_LDST-01.elf.bin
+│   │   │   │   ├── I-MISALIGN_LDST-01.elf.objdump
+│   │   │   │   ├── I-NOP-01.elf
+│   │   │   │   ├── I-NOP-01.elf.bin
+│   │   │   │   ├── I-NOP-01.elf.objdump
+│   │   │   │   ├── I-OR-01.elf
+│   │   │   │   ├── I-OR-01.elf.bin
+│   │   │   │   ├── I-OR-01.elf.objdump
+│   │   │   │   ├── I-ORI-01.elf
+│   │   │   │   ├── I-ORI-01.elf.bin
+│   │   │   │   ├── I-ORI-01.elf.objdump
+│   │   │   │   ├── I-RF_size-01.elf
+│   │   │   │   ├── I-RF_size-01.elf.bin
+│   │   │   │   ├── I-RF_size-01.elf.objdump
+│   │   │   │   ├── I-RF_width-01.elf
+│   │   │   │   ├── I-RF_width-01.elf.bin
+│   │   │   │   ├── I-RF_width-01.elf.objdump
+│   │   │   │   ├── I-RF_x0-01.elf
+│   │   │   │   ├── I-RF_x0-01.elf.bin
+│   │   │   │   ├── I-RF_x0-01.elf.objdump
+│   │   │   │   ├── I-SB-01.elf
+│   │   │   │   ├── I-SB-01.elf.bin
+│   │   │   │   ├── I-SB-01.elf.objdump
+│   │   │   │   ├── I-SH-01.elf
+│   │   │   │   ├── I-SH-01.elf.bin
+│   │   │   │   ├── I-SH-01.elf.objdump
+│   │   │   │   ├── I-SLL-01.elf
+│   │   │   │   ├── I-SLL-01.elf.bin
+│   │   │   │   ├── I-SLL-01.elf.objdump
+│   │   │   │   ├── I-SLLI-01.elf
+│   │   │   │   ├── I-SLLI-01.elf.bin
+│   │   │   │   ├── I-SLLI-01.elf.objdump
+│   │   │   │   ├── I-SLT-01.elf
+│   │   │   │   ├── I-SLT-01.elf.bin
+│   │   │   │   ├── I-SLT-01.elf.objdump
+│   │   │   │   ├── I-SLTI-01.elf
+│   │   │   │   ├── I-SLTI-01.elf.bin
+│   │   │   │   ├── I-SLTI-01.elf.objdump
+│   │   │   │   ├── I-SLTIU-01.elf
+│   │   │   │   ├── I-SLTIU-01.elf.bin
+│   │   │   │   ├── I-SLTIU-01.elf.objdump
+│   │   │   │   ├── I-SLTU-01.elf
+│   │   │   │   ├── I-SLTU-01.elf.bin
+│   │   │   │   ├── I-SLTU-01.elf.objdump
+│   │   │   │   ├── I-SRA-01.elf
+│   │   │   │   ├── I-SRA-01.elf.bin
+│   │   │   │   ├── I-SRA-01.elf.objdump
+│   │   │   │   ├── I-SRAI-01.elf
+│   │   │   │   ├── I-SRAI-01.elf.bin
+│   │   │   │   ├── I-SRAI-01.elf.objdump
+│   │   │   │   ├── I-SRL-01.elf
+│   │   │   │   ├── I-SRL-01.elf.bin
+│   │   │   │   ├── I-SRL-01.elf.objdump
+│   │   │   │   ├── I-SRLI-01.elf
+│   │   │   │   ├── I-SRLI-01.elf.bin
+│   │   │   │   ├── I-SRLI-01.elf.objdump
+│   │   │   │   ├── I-SUB-01.elf
+│   │   │   │   ├── I-SUB-01.elf.bin
+│   │   │   │   ├── I-SUB-01.elf.objdump
+│   │   │   │   ├── I-SW-01.elf
+│   │   │   │   ├── I-SW-01.elf.bin
+│   │   │   │   ├── I-SW-01.elf.objdump
+│   │   │   │   ├── I-XOR-01.elf
+│   │   │   │   ├── I-XOR-01.elf.bin
+│   │   │   │   ├── I-XOR-01.elf.objdump
+│   │   │   │   ├── I-XORI-01.elf
+│   │   │   │   ├── I-XORI-01.elf.bin
+│   │   │   │   └── I-XORI-01.elf.objdump
+│   │   │   ├── rv32im
+│   │   │   │   ├── DIV.elf
+│   │   │   │   ├── DIV.elf.bin
+│   │   │   │   ├── DIV.elf.objdump
+│   │   │   │   ├── DIVU.elf
+│   │   │   │   ├── DIVU.elf.bin
+│   │   │   │   ├── DIVU.elf.objdump
+│   │   │   │   ├── MUL.elf
+│   │   │   │   ├── MUL.elf.bin
+│   │   │   │   ├── MUL.elf.objdump
+│   │   │   │   ├── MULH.elf
+│   │   │   │   ├── MULH.elf.bin
+│   │   │   │   ├── MULH.elf.objdump
+│   │   │   │   ├── MULHSU.elf
+│   │   │   │   ├── MULHSU.elf.bin
+│   │   │   │   ├── MULHSU.elf.objdump
+│   │   │   │   ├── MULHU.elf
+│   │   │   │   ├── MULHU.elf.bin
+│   │   │   │   ├── MULHU.elf.objdump
+│   │   │   │   ├── REM.elf
+│   │   │   │   ├── REM.elf.bin
+│   │   │   │   ├── REM.elf.objdump
+│   │   │   │   ├── REMU.elf
+│   │   │   │   ├── REMU.elf.bin
+│   │   │   │   └── REMU.elf.objdump
+│   │   │   ├── rv32Zicsr
+│   │   │   │   ├── I-CSRRC-01.elf
+│   │   │   │   ├── I-CSRRC-01.elf.bin
+│   │   │   │   ├── I-CSRRC-01.elf.objdump
+│   │   │   │   ├── I-CSRRCI-01.elf
+│   │   │   │   ├── I-CSRRCI-01.elf.bin
+│   │   │   │   ├── I-CSRRCI-01.elf.objdump
+│   │   │   │   ├── I-CSRRS-01.elf
+│   │   │   │   ├── I-CSRRS-01.elf.bin
+│   │   │   │   ├── I-CSRRS-01.elf.objdump
+│   │   │   │   ├── I-CSRRSI-01.elf
+│   │   │   │   ├── I-CSRRSI-01.elf.bin
+│   │   │   │   ├── I-CSRRSI-01.elf.objdump
+│   │   │   │   ├── I-CSRRW-01.elf
+│   │   │   │   ├── I-CSRRW-01.elf.bin
+│   │   │   │   ├── I-CSRRW-01.elf.objdump
+│   │   │   │   ├── I-CSRRWI-01.elf
+│   │   │   │   ├── I-CSRRWI-01.elf.bin
+│   │   │   │   └── I-CSRRWI-01.elf.objdump
+│   │   │   └── rv32Zifencei
+│   │   │       ├── I-FENCE.I-01.elf
+│   │   │       ├── I-FENCE.I-01.elf.bin
+│   │   │       └── I-FENCE.I-01.elf.objdump
+│   │   ├── ChangeLog
+│   │   ├── COPYING.BSD
+│   │   ├── COPYING.CC
+│   │   ├── doc
+│   │   │   ├── ChangeLog
+│   │   │   ├── custom.wordlist
+│   │   │   ├── .gitignore
+│   │   │   ├── Makefile
+│   │   │   └── README.adoc
+│   │   ├── Makefile
+│   │   ├── README.md
+│   │   ├── riscv-target
+│   │   │   └── tinyriscv
+│   │   │       ├── compliance_io.h
+│   │   │       ├── compliance_test.h
+│   │   │       ├── device
+│   │   │       │   ├── rv32i
+│   │   │       │   │   └── Makefile.include
+│   │   │       │   ├── rv32im
+│   │   │       │   │   └── Makefile.include
+│   │   │       │   ├── rv32Zicsr
+│   │   │       │   │   └── Makefile.include
+│   │   │       │   └── rv32Zifencei
+│   │   │       │       └── Makefile.include
+│   │   │       └── README.md
+│   │   ├── riscv-test-env
+│   │   │   ├── encoding.h
+│   │   │   ├── LICENSE
+│   │   │   ├── p
+│   │   │   │   ├── link.ld
+│   │   │   │   └── riscv_test.h
+│   │   │   ├── riscv_test_macros.h
+│   │   │   └── test_macros.h
+│   │   ├── riscv-test-suite
+│   │   │   ├── README.md
+│   │   │   ├── rv32i
+│   │   │   │   ├── coverage
+│   │   │   │   │   ├── report.txt
+│   │   │   │   │   └── summary.txt
+│   │   │   │   ├── .gitignore
+│   │   │   │   ├── Makefile
+│   │   │   │   ├── Makefrag
+│   │   │   │   ├── references
+│   │   │   │   │   ├── I-ADD-01.reference_output
+│   │   │   │   │   ├── I-ADDI-01.reference_output
+│   │   │   │   │   ├── I-AND-01.reference_output
+│   │   │   │   │   ├── I-ANDI-01.reference_output
+│   │   │   │   │   ├── I-AUIPC-01.reference_output
+│   │   │   │   │   ├── I-BEQ-01.reference_output
+│   │   │   │   │   ├── I-BGE-01.reference_output
+│   │   │   │   │   ├── I-BGEU-01.reference_output
+│   │   │   │   │   ├── I-BLT-01.reference_output
+│   │   │   │   │   ├── I-BLTU-01.reference_output
+│   │   │   │   │   ├── I-BNE-01.reference_output
+│   │   │   │   │   ├── I-DELAY_SLOTS-01.reference_output
+│   │   │   │   │   ├── I-EBREAK-01.reference_output
+│   │   │   │   │   ├── I-ECALL-01.reference_output
+│   │   │   │   │   ├── I-ENDIANESS-01.reference_output
+│   │   │   │   │   ├── I-IO-01.reference_output
+│   │   │   │   │   ├── I-JAL-01.reference_output
+│   │   │   │   │   ├── I-JALR-01.reference_output
+│   │   │   │   │   ├── I-LB-01.reference_output
+│   │   │   │   │   ├── I-LBU-01.reference_output
+│   │   │   │   │   ├── I-LH-01.reference_output
+│   │   │   │   │   ├── I-LHU-01.reference_output
+│   │   │   │   │   ├── I-LUI-01.reference_output
+│   │   │   │   │   ├── I-LW-01.reference_output
+│   │   │   │   │   ├── I-MISALIGN_JMP-01.reference_output
+│   │   │   │   │   ├── I-MISALIGN_LDST-01.reference_output
+│   │   │   │   │   ├── I-NOP-01.reference_output
+│   │   │   │   │   ├── I-OR-01.reference_output
+│   │   │   │   │   ├── I-ORI-01.reference_output
+│   │   │   │   │   ├── I-RF_size-01.reference_output
+│   │   │   │   │   ├── I-RF_width-01.reference_output
+│   │   │   │   │   ├── I-RF_x0-01.reference_output
+│   │   │   │   │   ├── I-SB-01.reference_output
+│   │   │   │   │   ├── I-SH-01.reference_output
+│   │   │   │   │   ├── I-SLL-01.reference_output
+│   │   │   │   │   ├── I-SLLI-01.reference_output
+│   │   │   │   │   ├── I-SLT-01.reference_output
+│   │   │   │   │   ├── I-SLTI-01.reference_output
+│   │   │   │   │   ├── I-SLTIU-01.reference_output
+│   │   │   │   │   ├── I-SLTU-01.reference_output
+│   │   │   │   │   ├── I-SRA-01.reference_output
+│   │   │   │   │   ├── I-SRAI-01.reference_output
+│   │   │   │   │   ├── I-SRL-01.reference_output
+│   │   │   │   │   ├── I-SRLI-01.reference_output
+│   │   │   │   │   ├── I-SUB-01.reference_output
+│   │   │   │   │   ├── I-SW-01.reference_output
+│   │   │   │   │   ├── I-XOR-01.reference_output
+│   │   │   │   │   └── I-XORI-01.reference_output
+│   │   │   │   └── src
+│   │   │   │       ├── I-ADD-01.S
+│   │   │   │       ├── I-ADDI-01.S
+│   │   │   │       ├── I-AND-01.S
+│   │   │   │       ├── I-ANDI-01.S
+│   │   │   │       ├── I-AUIPC-01.S
+│   │   │   │       ├── I-BEQ-01.S
+│   │   │   │       ├── I-BGE-01.S
+│   │   │   │       ├── I-BGEU-01.S
+│   │   │   │       ├── I-BLT-01.S
+│   │   │   │       ├── I-BLTU-01.S
+│   │   │   │       ├── I-BNE-01.S
+│   │   │   │       ├── I-DELAY_SLOTS-01.S
+│   │   │   │       ├── I-EBREAK-01.S
+│   │   │   │       ├── I-ECALL-01.S
+│   │   │   │       ├── I-ENDIANESS-01.S
+│   │   │   │       ├── I-IO-01.S
+│   │   │   │       ├── I-JAL-01.S
+│   │   │   │       ├── I-JALR-01.S
+│   │   │   │       ├── I-LB-01.S
+│   │   │   │       ├── I-LBU-01.S
+│   │   │   │       ├── I-LH-01.S
+│   │   │   │       ├── I-LHU-01.S
+│   │   │   │       ├── I-LUI-01.S
+│   │   │   │       ├── I-LW-01.S
+│   │   │   │       ├── I-MISALIGN_JMP-01.S
+│   │   │   │       ├── I-MISALIGN_LDST-01.S
+│   │   │   │       ├── I-NOP-01.S
+│   │   │   │       ├── I-OR-01.S
+│   │   │   │       ├── I-ORI-01.S
+│   │   │   │       ├── I-RF_size-01.S
+│   │   │   │       ├── I-RF_width-01.S
+│   │   │   │       ├── I-RF_x0-01.S
+│   │   │   │       ├── I-SB-01.S
+│   │   │   │       ├── I-SH-01.S
+│   │   │   │       ├── I-SLL-01.S
+│   │   │   │       ├── I-SLLI-01.S
+│   │   │   │       ├── I-SLT-01.S
+│   │   │   │       ├── I-SLTI-01.S
+│   │   │   │       ├── I-SLTIU-01.S
+│   │   │   │       ├── I-SLTU-01.S
+│   │   │   │       ├── I-SRA-01.S
+│   │   │   │       ├── I-SRAI-01.S
+│   │   │   │       ├── I-SRL-01.S
+│   │   │   │       ├── I-SRLI-01.S
+│   │   │   │       ├── I-SUB-01.S
+│   │   │   │       ├── I-SW-01.S
+│   │   │   │       ├── I-XOR-01.S
+│   │   │   │       └── I-XORI-01.S
+│   │   │   ├── rv32im
+│   │   │   │   ├── coverage
+│   │   │   │   │   ├── report.txt
+│   │   │   │   │   └── summary.txt
+│   │   │   │   ├── .gitignore
+│   │   │   │   ├── Makefile
+│   │   │   │   ├── Makefrag
+│   │   │   │   ├── references
+│   │   │   │   │   ├── DIV.reference_output
+│   │   │   │   │   ├── DIVU.reference_output
+│   │   │   │   │   ├── MULH.reference_output
+│   │   │   │   │   ├── MULHSU.reference_output
+│   │   │   │   │   ├── MULHU.reference_output
+│   │   │   │   │   ├── MUL.reference_output
+│   │   │   │   │   ├── REM.reference_output
+│   │   │   │   │   └── REMU.reference_output
+│   │   │   │   └── src
+│   │   │   │       ├── DIV.S
+│   │   │   │       ├── DIVU.S
+│   │   │   │       ├── MULH.S
+│   │   │   │       ├── MULHSU.S
+│   │   │   │       ├── MULHU.S
+│   │   │   │       ├── MUL.S
+│   │   │   │       ├── REM.S
+│   │   │   │       └── REMU.S
+│   │   │   ├── rv32Zicsr
+│   │   │   │   ├── .gitignore
+│   │   │   │   ├── Makefile
+│   │   │   │   ├── Makefrag
+│   │   │   │   ├── references
+│   │   │   │   │   ├── I-CSRRC-01.reference_output
+│   │   │   │   │   ├── I-CSRRCI-01.reference_output
+│   │   │   │   │   ├── I-CSRRS-01.reference_output
+│   │   │   │   │   ├── I-CSRRSI-01.reference_output
+│   │   │   │   │   ├── I-CSRRW-01.reference_output
+│   │   │   │   │   └── I-CSRRWI-01.reference_output
+│   │   │   │   └── src
+│   │   │   │       ├── I-CSRRC-01.S
+│   │   │   │       ├── I-CSRRCI-01.S
+│   │   │   │       ├── I-CSRRS-01.S
+│   │   │   │       ├── I-CSRRSI-01.S
+│   │   │   │       ├── I-CSRRW-01.S
+│   │   │   │       └── I-CSRRWI-01.S
+│   │   │   └── rv32Zifencei
+│   │   │       ├── .gitignore
+│   │   │       ├── Makefile
+│   │   │       ├── Makefrag
+│   │   │       ├── references
+│   │   │       │   └── I-FENCE.I-01.reference_output
+│   │   │       └── src
+│   │   │           └── I-FENCE.I-01.S
+│   │   └── spec
+│   │       ├── TestFormatSpec.adoc
+│   │       ├── TestFormatSpec.pdf
+│   │       └── testpool.jpg
+│   └── test_mem
+│       ├── Baisc_Inst_Example
+│       │   ├── inst_add.data
+│       │   ├── inst_andi.data
+│       │   ├── inst_auipc.data
+│       │   ├── inst_beq.data
+│       │   ├── inst_bge.data
+│       │   ├── inst_bgeu.data
+│       │   ├── inst_blt.data
+│       │   ├── inst_bltu.data
+│       │   ├── inst_bne.data
+│       │   ├── inst_div.data
+│       │   ├── inst_divu.data
+│       │   ├── inst_jal.data
+│       │   ├── inst_jalr.data
+│       │   ├── inst_lui.data
+│       │   ├── inst_ori.data
+│       │   ├── inst_rem.data
+│       │   ├── inst_remu.data
+│       │   ├── inst_simple.data
+│       │   ├── inst_slli.data
+│       │   ├── inst_slti.data
+│       │   ├── inst_sltiu.data
+│       │   ├── inst_srai.data
+│       │   ├── inst_srli.data
+│       │   └── inst_xori.data
+│       ├── Extend_Inst_Example
+│       │   ├── IF
+│       │   │   ├── IF.dump
+│       │   │   └── IF_inst.data
+│       │   ├── sID
+│       │   │   ├── sID.c
+│       │   │   ├── sID.dump
+│       │   │   └── sID_inst.data
+│       │   └── Temp
+│       │       ├── Temp.c
+│       │       ├── Temp.data
+│       │       └── Temp.dump
+│       ├── Other_Example
+│       │   ├── LED
+│       │   │   ├── LED.c
+│       │   │   ├── LED.data
+│       │   │   └── LED.dump
+│       │   └── PWM
+│       │       ├── PWM.c
+│       │       ├── PWM.dump
+│       │       └── PWM_inst.data
+│       └── rst_inst.data
+├── tools
+│   ├── BinToMem_CLI.py
+│   ├── .gitignore
+│   └── tinyriscv_fw_downloader.py
+└── vcs
+    ├── filelist.f
+    ├── generate_inst_data.py
+    ├── inst.data
+    └── Makefile
+
+88 directories, 847 files
