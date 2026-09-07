@@ -31,10 +31,12 @@ TESTS_DIR ?= ../tests/isa/generated
 TEST       ?= rv32ui-p-simple
 MEM_SRC     = $(TESTS_DIR)/$(TEST).bin
 
-# start compile and simulate
-vcs:
+# start compile and simulate (matches original -R behavior: one step)
+vcs: inst.data
 	$(VCS)
+	./simv -cm $(COV_TYPES)
 
+# run only (add more tests: make run TEST=rv32ui-p-add ...)
 run: inst.data
 	./simv -cm $(COV_TYPES)
 
@@ -50,7 +52,7 @@ merge:
 	@cat cov_report/mergereport.txt cov_report/grp/summary.txt 2>/dev/null || true
 
 # one-shot: compile + run + report
-cov: vcs run merge
+cov: vcs merge
 
 #run verdi
 verdi:
