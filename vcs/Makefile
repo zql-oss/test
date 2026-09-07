@@ -45,7 +45,7 @@ inst.data: $(MEM_SRC)
 # merge all coverage in simv.vdb into HTML report + terminal summary
 merge:
 	rm -rf cov_report
-	urg -dir simv.vdb -report cov_report -64bit
+	urg -dir simv.vdb -report cov_report
 	@echo "=== terminal summary (see cov_report/html/index.html for details) ==="
 	@cat cov_report/mergereport.txt cov_report/grp/summary.txt 2>/dev/null || true
 
