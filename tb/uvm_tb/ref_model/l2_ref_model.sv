@@ -87,13 +87,46 @@ class l2_ref_model extends uvm_component;
 
   // ── Main run task ───────────────────────────────────────────────────────────
   task run_phase(uvm_phase phase);
-    axi_seq_item req;
-    forever begin
-      cpu_fifo.get(req);
-      if (req.is_write)
-        process_write(req);
-      else
-        process_read(req);
+    fork
+      begin
+        axi_seq_item req;
+        forever begin
+          cpu_fifo.get(req);
+          if (req.is_write)
+            process_write(req);
+          else
+            process_read(req);
+        end
+      end
+      // Track memory contents as observed on the mem-side agent: the DUT re-fills
+      // lines from the mem slave after eviction/invalidation, and the slave returns
+      // its own data pattern — the model must mirror it, not assume zeros.
+      begin
+        axi_seq_item f;
+        forever begin
+          mem_fifo.get(f);
+          if ($test$plusargs("DBG_REF"))
+            $display("[DBG_REF] t=%0t mirror fill addr=%h beats=%0d w0=%h",
+                     $time, f.addr, f.rdata.size(),
+                     (f.rdata.size() > 0 ? f.rdata[0] : 64'h0));
+          for (int w = 0; w < f.rdata.size(); w++)
+            backing_mem[f.addr[39:3] + w] = f.rdata[w];
+        end
+      end
+    join
+  endtask
+
+  // Drain pending mem-side fill items into backing_mem before using it.
+  // The CPU monitor publishes a request only after its R channel completes,
+  // so every fill for earlier transactions is already queued here.
+  task drain_mem_fifo();
+    axi_seq_item f;
+    while (mem_fifo.try_get(f)) begin
+      if ($test$plusargs("DBG_REF"))
+        $display("[DBG_REF] t=%0t drain fill addr=%h beats=%0d w0=%h",
+                 $time, f.addr, f.rdata.size(), (f.rdata.size() > 0 ? f.rdata[0] : 64'h0));
+      for (int w = 0; w < f.rdata.size(); w++)
+        backing_mem[f.addr[39:3] + w] = f.rdata[w];
     end
   endtask
 
@@ -105,7 +138,8 @@ class l2_ref_model extends uvm_component;
     logic [39:0] line_addr;
     int          word_base;
 
-    set_idx   = req.addr[12+6-1:6];   // INDEX_BITS=9, OFFSET=6 → [14:6]
+    bit rm_hit;
+    set_idx   = req.addr[14:6];       // INDEX_BITS=9, OFFSET=6 → [14:6]
     line_addr = {req.addr[39:6], 6'b0};
     word_base = req.addr[5:3];
 
@@ -117,8 +151,11 @@ class l2_ref_model extends uvm_component;
     expected.resp     = 2'b00;  // OKAY
     expected.rdata    = new[req.len + 1];
 
+    if ($test$plusargs("DBG_REF"))
+      $display("[DBG_REF] t=%0t rd addr=%h len=%0d", $time, req.addr, req.len);
+    rm_hit = lookup_hit(set_idx, req.addr[39:15], way);
     // Check cache hit
-    if (lookup_hit(set_idx, req.addr[39:15], way)) begin
+    if (rm_hit) begin
       // Hit: return data from model cache
       for (int b = 0; b <= req.len; b++) begin
         expected.rdata[b] = model_cache[set_idx][way]
@@ -136,7 +173,8 @@ class l2_ref_model extends uvm_component;
         writeback_to_mem(set_idx, way);
       end
 
-      // Fill from backing memory
+      // Fill from backing memory (drain pending fills first — race guard)
+      drain_mem_fifo();
       fill_from_mem(set_idx, way, line_addr);
       update_plru(set_idx, way);
 
@@ -156,6 +194,7 @@ class l2_ref_model extends uvm_component;
     int          way;
     int          word_idx;
     logic [39:0] line_addr;
+    int          beat;
 
     set_idx   = req.addr[14:6];
     line_addr = {req.addr[39:6], 6'b0};
@@ -167,12 +206,18 @@ class l2_ref_model extends uvm_component;
     expected.is_write = 1'b1;
     expected.resp     = 2'b00;
 
+    // Apply every W beat: beats walk sequentially through the line from the
+    // request's word index, wrapping in-line — the same convention as the
+    // DUT's read response engine. (Originally only wdata[0] was applied,
+    // which mismatched multi-beat writes: the DUT's last-beat data won.)
     if (lookup_hit(set_idx, req.addr[39:15], way)) begin
       // Write hit — update in model
-      for (int b = 0; b < 8; b++) begin
-        if (req.wstrb[0][b]) begin  // wstrb[0] = first (and only) beat strobe
-          model_cache[set_idx][way].data[word_idx][b*8+:8] =
-            req.wdata[0][b*8+:8];
+      for (beat = 0; beat < req.wdata.size(); beat++) begin
+        for (int b = 0; b < 8; b++) begin
+          if (req.wstrb[beat][b]) begin
+            model_cache[set_idx][way].data[(word_idx + beat) % WORDS_PER_LINE][b*8+:8] =
+              req.wdata[beat][b*8+:8];
+          end
         end
       end
       model_cache[set_idx][way].dirty = 1'b1;
@@ -180,6 +225,7 @@ class l2_ref_model extends uvm_component;
       update_plru(set_idx, way);
     end else begin
       // Write miss — allocate (write-allocate policy)
+      drain_mem_fifo();
       way = plru_victim(set_idx);
       if (model_cache[set_idx][way].valid &&
           model_cache[set_idx][way].dirty) begin
@@ -187,20 +233,25 @@ class l2_ref_model extends uvm_component;
       end
       fill_from_mem(set_idx, way, line_addr);
       // Apply write to freshly filled line
-      for (int b = 0; b < 8; b++) begin
-        if (req.wstrb[0][b])
-          model_cache[set_idx][way].data[word_idx][b*8+:8] =
-            req.wdata[0][b*8+:8];
+      for (beat = 0; beat < req.wdata.size(); beat++) begin
+        for (int b = 0; b < 8; b++) begin
+          if (req.wstrb[beat][b])
+            model_cache[set_idx][way].data[(word_idx + beat) % WORDS_PER_LINE][b*8+:8] =
+              req.wdata[beat][b*8+:8];
+        end
       end
       model_cache[set_idx][way].dirty = 1'b1;
       model_cache[set_idx][way].mesi  = 2'b11;
       update_plru(set_idx, way);
     end
 
-    // Update backing memory immediately for coherency tracking
+    // Update backing memory immediately for coherency tracking (first beat's
+    // word; multi-beat writes only apply their first-beat word here)
     backing_mem[req.addr[39:3]] = req.wdata[0];
 
-    expected_ap.write(expected);
+    // NOTE: no expected_ap.write() for writes — the write checker verifies BRESP on
+    // the actual item only; publishing an expected item here (with unallocated rdata)
+    // would poison the read checker's expected FIFO ordering.
   endtask
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

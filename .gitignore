@@ -94,3 +94,17 @@ qverify_work/
 
 # UVS tooling
 .uvs_lsp.sh
+
+# UVS build outputs (keep the source filelists)
+sim/uvs/coverage/
+sim/uvs/coverage_smoke/
+sim/uvs/dpi/
+sim/uvs/*.db/
+sim/uvs/*.cdb/
+sim/uvs/l2_cache_top_sim
+sim/uvs/l2_cache_top_sim_smoke
+sim/uvs/*.log
+uvsim.cns/
+
+# Generated delivery bundles
+dist/

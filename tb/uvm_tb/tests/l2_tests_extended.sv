@@ -44,13 +44,15 @@ class l2_write_allocate_test extends l2_base_test;
       "Write allocate: latency=%0d cycles (expect>4 = RFO miss)",
       wr_item.latency), UVM_NONE)
 
-    // Read back — should hit (line now in M state)
-    seq.do_cacheline_read(addr, rd_item);
+    // Read back — should hit (line now in M state). Single-word read; the
+    // driver's handshake loop floors latency at ~14 cycles even for a pure
+    // hit, while a miss would additionally pay the ~80-cycle fill latency.
+    seq.do_word_read(addr, rd_item);
     `uvm_info("TEST", $sformatf(
-      "Read after allocate: latency=%0d cycles (expect<=4 = hit)",
+      "Read after allocate: latency=%0d cycles (expect<=32 = hit)",
       rd_item.latency), UVM_NONE)
 
-    if (rd_item.latency > 4)
+    if (rd_item.latency > 32)
       `uvm_error("TEST", "Expected hit after write-allocate but got miss")
     `uvm_info("TEST", "Write allocate test PASSED", UVM_NONE)
   endtask
@@ -105,6 +107,7 @@ class l2_axi_burst_length_test extends l2_base_test;
     foreach (burst_lens[i]) begin
       int bl = burst_lens[i];
       item = axi_seq_item::type_id::create($sformatf("burst_rd_len%0d", bl));
+      seq.start(env.cpu_agent.sequencer);
       seq.start_item(item);
       if (!item.randomize() with {
         is_write == 1'b0;
@@ -142,6 +145,7 @@ class l2_axi_id_reuse_test extends l2_base_test;
 
     // First transaction with ID 0x42
     item1 = axi_seq_item::type_id::create("rd_id42_1");
+    seq.start(env.cpu_agent.sequencer);
     seq.start_item(item1);
     assert(item1.randomize() with {
       is_write == 1'b0; len == 8'd7; id == reused_id;
@@ -243,6 +247,7 @@ class l2_snoop_during_miss_test extends l2_base_test;
     fork
       begin : rd_thread
         rd_item = axi_seq_item::type_id::create("snoop_miss_rd");
+        seq.start(env.cpu_agent.sequencer);
         seq.start_item(rd_item);
         assert(rd_item.randomize() with {
           is_write == 1'b0; len == 8'd7;

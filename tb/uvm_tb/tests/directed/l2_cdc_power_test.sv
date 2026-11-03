@@ -49,6 +49,7 @@ class l2_cdc_async_fifo_test extends l2_base_test;
     // Issue N back-to-back cache misses (all go through async FIFO on fill path)
     for (int i = 0; i < N; i++) begin
       wr_item = axi_seq_item::type_id::create($sformatf("cdc_rd_%0d", i));
+      seq.start(env.cpu_agent.sequencer);
       seq.start_item(wr_item);
       assert(wr_item.randomize() with {
         is_write == 1'b0;
@@ -88,6 +89,7 @@ class l2_power_flush_test extends l2_base_test;
     // Populate cache with DIRTY_LINES dirty lines
     for (int i = 0; i < DIRTY_LINES; i++) begin
       item = axi_seq_item::type_id::create($sformatf("dirty_wr_%0d", i));
+      seq.start(env.cpu_agent.sequencer);
       seq.start_item(item);
       assert(item.randomize() with {
         is_write == 1'b1;

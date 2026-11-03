@@ -34,44 +34,46 @@ from typing import List, Optional
 # Configuration
 # =============================================================================
 
-DEFAULT_TOOL    = "vcs"
-DEFAULT_JOBS    = 4
+DEFAULT_TOOL = "vcs"
+DEFAULT_JOBS = 4
 TIMEOUT_SECONDS = 1800  # 30 min per test
-REPORT_DIR      = Path("reports/regression")
-SIM_DIR         = Path("sim")
+REPORT_DIR = Path("reports/regression")
+SIM_DIR = Path("sim")
 
 
 # =============================================================================
 # Data classes
 # =============================================================================
 
+
 @dataclass
 class TestResult:
-    name:       str
-    seed:       int
-    status:     str       # PASS / FAIL / TIMEOUT / COMPILE_ERROR
-    elapsed:    float
-    log_path:   str
-    errors:     List[str] = field(default_factory=list)
-    warnings:   List[str] = field(default_factory=list)
-    coverage:   float = 0.0
+    name: str
+    seed: int
+    status: str  # PASS / FAIL / TIMEOUT / COMPILE_ERROR
+    elapsed: float
+    log_path: str
+    errors: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+    coverage: float = 0.0
     sim_time_ns: float = 0.0
 
 
 @dataclass
 class TestConfig:
-    name:       str
+    name: str
     test_class: str
-    num_seeds:  int  = 1
-    timeout:    int  = TIMEOUT_SECONDS
-    plusargs:   dict = field(default_factory=dict)
-    tags:       List[str] = field(default_factory=list)
-    enabled:    bool = True
+    num_seeds: int = 1
+    timeout: int = TIMEOUT_SECONDS
+    plusargs: dict = field(default_factory=dict)
+    tags: List[str] = field(default_factory=list)
+    enabled: bool = True
 
 
 # =============================================================================
 # Simulation runner
 # =============================================================================
+
 
 class SimRunner:
     """Invokes the simulator for one test/seed combination."""
@@ -136,7 +138,10 @@ class SimRunner:
             r = subprocess.run(
                 f"gcc -shared -fPIC -O2 {inc} tb/dpi/ecc_inject.c "
                 f"-o tb/dpi/ecc_inject.so",
-                shell=True, capture_output=True, text=True)
+                shell=True,
+                capture_output=True,
+                text=True,
+            )
             if r.returncode != 0:
                 print(f"[DPI BUILD ERROR]\n{r.stderr[-2000:]}")
                 print("[DPI HINT] set VCS_HOME so gcc can find svdpi.h")
@@ -157,93 +162,110 @@ class SimRunner:
 
     def run(self, config: TestConfig, seed: int) -> TestResult:
         """Run one test with one seed. Returns TestResult."""
-        log_dir  = REPORT_DIR / "logs" / config.name
+        log_dir = REPORT_DIR / "logs" / config.name
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = str(log_dir / f"seed_{seed}.log")
 
         plusarg_str = " ".join(f"+{k}={v}" for k, v in config.plusargs.items())
 
         cmd = self.TOOL_CMD[self.tool]["sim"].format(
-            top       = "l2_cache_top_sim",
-            test      = config.test_class,
-            seed      = seed,
-            verbosity = self.verbosity,
-            plusargs  = plusarg_str,
-            log       = log_path,
+            top="l2_cache_top_sim",
+            test=config.test_class,
+            seed=seed,
+            verbosity=self.verbosity,
+            plusargs=plusarg_str,
+            log=log_path,
         )
         if self.cov and self.tool == "vcs":
-            cmd += (f" -cm {self.CM_FLAGS}"
-                    f" -cm_dir sim/vcs/coverage/{config.test_class}_seed{seed}.vdb")
+            cmd += (
+                f" -cm {self.CM_FLAGS}"
+                f" -cm_dir sim/vcs/coverage/{config.name}_seed{seed}.vdb"
+                f" -cm_name {config.name}_seed{seed}"
+            )
 
         start = time.time()
         try:
             result = subprocess.run(
                 cmd,
-                shell   = True,
-                timeout = config.timeout,
-                capture_output = True,
-                text    = True,
+                shell=True,
+                timeout=config.timeout,
+                capture_output=True,
+                text=True,
             )
             elapsed = time.time() - start
             status, errors, warnings = self._parse_log(log_path)
 
             return TestResult(
-                name     = config.name,
-                seed     = seed,
-                status   = status,
-                elapsed  = elapsed,
-                log_path = log_path,
-                errors   = errors,
-                warnings = warnings,
-                coverage = self._extract_coverage(log_path),
-                sim_time_ns = self._extract_sim_time(log_path),
+                name=config.name,
+                seed=seed,
+                status=status,
+                elapsed=elapsed,
+                log_path=log_path,
+                errors=errors,
+                warnings=warnings,
+                coverage=self._extract_coverage(log_path),
+                sim_time_ns=self._extract_sim_time(log_path),
             )
 
         except subprocess.TimeoutExpired:
             return TestResult(
-                name    = config.name,
-                seed    = seed,
-                status  = "TIMEOUT",
-                elapsed = config.timeout,
-                log_path= log_path,
-                errors  = [f"Simulation timed out after {config.timeout}s"],
+                name=config.name,
+                seed=seed,
+                status="TIMEOUT",
+                elapsed=config.timeout,
+                log_path=log_path,
+                errors=[f"Simulation timed out after {config.timeout}s"],
             )
 
     def _parse_log(self, log_path: str):
-        """Parse simulation log for PASS/FAIL and error messages."""
-        errors   = []
+        """Parse the UVM report summary (not individual UVM_ERROR messages)."""
+        errors = []
         warnings = []
-        status   = "FAIL"
+        err_cnt = None
+        fat_cnt = None
 
         if not Path(log_path).exists():
             return "COMPILE_ERROR", ["Log file not found"], []
 
-        with open(log_path) as f:
+        summary_re = re.compile(r"^\s*UVM_(ERROR|FATAL)\s*:\s*(\d+)")
+        with open(log_path, errors="ignore") as f:
             for line in f:
-                if re.search(r'\*\* TEST PASSED \*\*|UVM_ERROR\s+:\s+0\b', line):
-                    status = "PASS"
-                if re.search(r'UVM_FATAL|UVM_ERROR\b', line, re.I):
+                m = summary_re.match(line)
+                if m:
+                    if m.group(1) == "ERROR":
+                        err_cnt = int(m.group(2))
+                    else:
+                        fat_cnt = int(m.group(2))
+                elif re.search(r"\bUVM_(FATAL|ERROR)\b", line):
                     errors.append(line.strip())
-                    status = "FAIL"
-                if re.search(r'UVM_WARNING', line, re.I):
+                if re.search(r"UVM_WARNING", line):
                     warnings.append(line.strip())
+
+        if err_cnt is None and fat_cnt is None:
+            status = "NORUN"
+        elif (fat_cnt or 0) > 0:
+            status = "FATAL"
+        elif (err_cnt or 0) > 0:
+            status = "FAIL"
+        else:
+            status = "PASS"
 
         return status, errors, warnings
 
     def _extract_coverage(self, log_path: str) -> float:
         """Extract total functional coverage % from log."""
-        with open(log_path, errors='ignore') as f:
+        with open(log_path, errors="ignore") as f:
             for line in f:
-                m = re.search(r'Total Coverage\s*:\s*([\d.]+)%', line)
+                m = re.search(r"Total Coverage\s*:\s*([\d.]+)%", line)
                 if m:
                     return float(m.group(1))
         return 0.0
 
     def _extract_sim_time(self, log_path: str) -> float:
         """Extract simulation end time in ns."""
-        with open(log_path, errors='ignore') as f:
+        with open(log_path, errors="ignore") as f:
             content = f.read()
-        m = re.search(r'(\d+(?:\.\d+)?)ns', content)
+        m = re.search(r"(\d+(?:\.\d+)?)ns", content)
         return float(m.group(1)) if m else 0.0
 
 
@@ -251,12 +273,13 @@ class SimRunner:
 # Regression orchestrator
 # =============================================================================
 
+
 class RegressionRunner:
     def __init__(self, args):
-        self.args    = args
-        self.tool    = args.tool
-        self.jobs    = args.jobs
-        self.runner  = SimRunner(self.tool, cov=getattr(args, "cov", False))
+        self.args = args
+        self.tool = args.tool
+        self.jobs = args.jobs
+        self.runner = SimRunner(self.tool, cov=getattr(args, "cov", False))
         self.results: List[TestResult] = []
         REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -266,15 +289,15 @@ class RegressionRunner:
             plan = yaml.safe_load(f)
 
         configs = []
-        for t in plan.get("tests", []):
+        for idx, t in enumerate(plan.get("tests", [])):
             cfg = TestConfig(
-                name       = t["name"],
-                test_class = t.get("test_class", t["name"]),
-                num_seeds  = t.get("num_seeds", self.args.seeds),
-                timeout    = t.get("timeout", TIMEOUT_SECONDS),
-                plusargs   = t.get("plusargs", {}),
-                tags       = t.get("tags", []),
-                enabled    = t.get("enabled", True),
+                name=f"t{idx:03d}_{t['name']}",
+                test_class=t.get("test_class", t["name"]),
+                num_seeds=t.get("num_seeds", self.args.seeds),
+                timeout=t.get("timeout_s", t.get("timeout", TIMEOUT_SECONDS)),
+                plusargs=t.get("plusargs", {}),
+                tags=t.get("tags", []),
+                enabled=t.get("enabled", True),
             )
             # Filter by tag if specified
             if self.args.tag and self.args.tag not in cfg.tags:
@@ -291,16 +314,14 @@ class RegressionRunner:
             # Single test override
             seeds = [self.args.seed] if self.args.seed else list(range(self.args.seeds))
             cfg = TestConfig(
-                name       = self.args.test,
-                test_class = self.args.test,
-                num_seeds  = len(seeds),
+                name=self.args.test,
+                test_class=self.args.test,
+                num_seeds=len(seeds),
             )
             jobs = [(cfg, s) for s in seeds]
         else:
-            import random
             for cfg in configs:
-                seeds = [random.randint(1, 0x7FFF_FFFF)
-                         for _ in range(cfg.num_seeds)]
+                seeds = list(range(1, cfg.num_seeds + 1))
                 if self.args.seed:
                     seeds = [self.args.seed]
                 jobs.extend((cfg, s) for s in seeds)
@@ -313,9 +334,11 @@ class RegressionRunner:
                 sys.exit(1)
 
         configs = self.load_plan()
-        jobs    = self.build_jobs(configs)
+        jobs = self.build_jobs(configs)
 
-        print(f"\n[REGRESSION] Running {len(jobs)} jobs on {self.jobs} parallel workers")
+        print(
+            f"\n[REGRESSION] Running {len(jobs)} jobs on {self.jobs} parallel workers"
+        )
         print(f"[REGRESSION] Tool: {self.tool}  Plan: {self.args.plan}\n")
 
         start = time.time()
@@ -331,9 +354,11 @@ class RegressionRunner:
                     result = future.result()
                     self.results.append(result)
                     icon = "✅" if result.status == "PASS" else "❌"
-                    print(f"  {icon} {result.name}[seed={result.seed:010d}]"
-                          f"  {result.status}  {result.elapsed:.1f}s"
-                          f"  cov={result.coverage:.1f}%")
+                    print(
+                        f"  {icon} {result.name}[seed={result.seed:010d}]"
+                        f"  {result.status}  {result.elapsed:.1f}s"
+                        f"  cov={result.coverage:.1f}%"
+                    )
                 except Exception as exc:
                     print(f"  💥 {name}[seed={seed}] raised exception: {exc}")
 
@@ -347,10 +372,10 @@ class RegressionRunner:
         sys.exit(1 if failures else 0)
 
     def _print_summary(self, elapsed: float):
-        passed  = sum(1 for r in self.results if r.status == "PASS")
-        failed  = sum(1 for r in self.results if r.status == "FAIL")
+        passed = sum(1 for r in self.results if r.status == "PASS")
+        failed = sum(1 for r in self.results if r.status == "FAIL")
         timeout = sum(1 for r in self.results if r.status == "TIMEOUT")
-        total   = len(self.results)
+        total = len(self.results)
         avg_cov = sum(r.coverage for r in self.results) / max(total, 1)
 
         print("\n" + "=" * 60)
@@ -372,17 +397,17 @@ class RegressionRunner:
     def _write_json_report(self):
         data = {
             "timestamp": datetime.now().isoformat(),
-            "total"    : len(self.results),
-            "pass"     : sum(1 for r in self.results if r.status == "PASS"),
-            "fail"     : sum(1 for r in self.results if r.status != "PASS"),
-            "results"  : [
+            "total": len(self.results),
+            "pass": sum(1 for r in self.results if r.status == "PASS"),
+            "fail": sum(1 for r in self.results if r.status != "PASS"),
+            "results": [
                 {
-                    "name"    : r.name,
-                    "seed"    : r.seed,
-                    "status"  : r.status,
-                    "elapsed" : round(r.elapsed, 2),
+                    "name": r.name,
+                    "seed": r.seed,
+                    "status": r.status,
+                    "elapsed": round(r.elapsed, 2),
                     "coverage": r.coverage,
-                    "errors"  : r.errors[:5],
+                    "errors": r.errors[:5],
                 }
                 for r in self.results
             ],
@@ -397,7 +422,7 @@ class RegressionRunner:
         rows = ""
         for r in sorted(self.results, key=lambda x: x.status):
             color = "#d4edda" if r.status == "PASS" else "#f8d7da"
-            errs  = "<br>".join(r.errors[:3]) if r.errors else ""
+            errs = "<br>".join(r.errors[:3]) if r.errors else ""
             rows += (
                 f"<tr style='background:{color}'>"
                 f"<td>{r.name}</td>"
@@ -410,8 +435,8 @@ class RegressionRunner:
                 f"</tr>"
             )
 
-        passed  = sum(1 for r in self.results if r.status == "PASS")
-        total   = len(self.results)
+        passed = sum(1 for r in self.results if r.status == "PASS")
+        total = len(self.results)
         avg_cov = sum(r.coverage for r in self.results) / max(total, 1)
 
         html = f"""<!DOCTYPE html>
@@ -429,7 +454,7 @@ class RegressionRunner:
 </head><body>
 <h1>🔬 L2 Cache — Regression Report</h1>
 <div class='summary'>
-  <b>Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')} &nbsp;|&nbsp;
+  <b>Date:</b> {datetime.now().strftime("%Y-%m-%d %H:%M")} &nbsp;|&nbsp;
   <b>Tool:</b> {self.tool} &nbsp;|&nbsp;
   <b>Tests:</b> {total} &nbsp;|&nbsp;
   <b>PASS:</b> {passed}/{total} &nbsp;|&nbsp;
@@ -453,26 +478,32 @@ class RegressionRunner:
 # CLI
 # =============================================================================
 
+
 def main():
-    parser = argparse.ArgumentParser(
-        description="L2 Cache UVM Regression Runner")
-    parser.add_argument("--plan",          default="scripts/regression/test_plan.yaml")
-    parser.add_argument("--tool",          default=DEFAULT_TOOL, choices=["vcs","xcelium"])
-    parser.add_argument("--jobs",    "-j", type=int, default=DEFAULT_JOBS)
-    parser.add_argument("--seeds",         type=int, default=3,
-                        help="Seeds per test (from plan)")
-    parser.add_argument("--seed",          type=int, default=None,
-                        help="Override: run all tests with this seed")
-    parser.add_argument("--test",          default=None,
-                        help="Run a single named test")
-    parser.add_argument("--tag",           default=None,
-                        help="Filter tests by tag")
-    parser.add_argument("--skip_compile",  action="store_true")
-    parser.add_argument("--cov",           action="store_true",
-                        help="Collect VCS coverage (line/cond/fsm/tgl/branch/assert)")
-    parser.add_argument("--verbosity",     default="UVM_MEDIUM")
-    parser.add_argument("--report_only",   action="store_true",
-                        help="Re-generate HTML from existing results.json")
+    parser = argparse.ArgumentParser(description="L2 Cache UVM Regression Runner")
+    parser.add_argument("--plan", default="scripts/regression/test_plan.yaml")
+    parser.add_argument("--tool", default=DEFAULT_TOOL, choices=["vcs", "xcelium"])
+    parser.add_argument("--jobs", "-j", type=int, default=DEFAULT_JOBS)
+    parser.add_argument(
+        "--seeds", type=int, default=3, help="Seeds per test (from plan)"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=None, help="Override: run all tests with this seed"
+    )
+    parser.add_argument("--test", default=None, help="Run a single named test")
+    parser.add_argument("--tag", default=None, help="Filter tests by tag")
+    parser.add_argument("--skip_compile", action="store_true")
+    parser.add_argument(
+        "--cov",
+        action="store_true",
+        help="Collect VCS coverage (line/cond/fsm/tgl/branch/assert)",
+    )
+    parser.add_argument("--verbosity", default="UVM_MEDIUM")
+    parser.add_argument(
+        "--report_only",
+        action="store_true",
+        help="Re-generate HTML from existing results.json",
+    )
     args = parser.parse_args()
 
     RegressionRunner(args).run()

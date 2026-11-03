@@ -51,8 +51,17 @@ interface ace_snoop_if #(
     input cd_data, cd_last, cd_valid, cd_ready;
   endclocking
 
-  modport driver  (clocking driver_cb,  input clk, rst_n);
+  modport driver  (clocking driver_cb,  input clk, rst_n,
+                       input ac_ready, cr_resp, cr_valid,
+                       input cd_data, cd_last, cd_valid);
   modport monitor (clocking monitor_cb, input clk, rst_n);
+  // Raw-sampling view (UVS: clocking-block sampling in monitors is unreliable —
+  // sampled values can read X even when wires are driven). Monitor reads wires
+  // directly at posedge instead.
+  modport monitor_raw (input clk, rst_n,
+                       input ac_addr, ac_snoop, ac_valid, ac_ready,
+                       input cr_resp, cr_valid, cr_ready,
+                       input cd_data, cd_last, cd_valid, cd_ready);
 
 endinterface
 
@@ -101,6 +110,7 @@ class ace_snoop_driver extends uvm_driver #(ace_seq_item);
     start_cycle = $time;
 
     // ── AC channel ─────────────────────────────────────────────────────
+    // (UVS: clocking-block SAMPLED inputs are unreliable — poll the raw wires)
     @(vif.driver_cb);
     vif.driver_cb.ac_addr  <= item.snoop_addr;
     vif.driver_cb.ac_snoop <= item.snoop_type;
@@ -109,55 +119,72 @@ class ace_snoop_driver extends uvm_driver #(ace_seq_item);
     do @(vif.driver_cb); while (!vif.driver_cb.ac_ready);
     vif.driver_cb.ac_valid <= 1'b0;
 
-    // ── CR channel ─────────────────────────────────────────────────────
-    vif.driver_cb.cr_ready <= 1'b1;
-    do @(vif.driver_cb); while (!vif.driver_cb.cr_valid);
-    item.cr_resp = vif.driver_cb.cr_resp;
-    vif.driver_cb.cr_ready <= 1'b0;
-
-    item.response_cycles = ($time - start_cycle) / 2; // divide by period
-
-    // ── CD channel (if PassDirty) ───────────────────────────────────────
+    // ── CD channel: the DUT sequences CD before CR for dirty snoop hits
+    // (CD_TRANSFER → CR_SEND), so CD data must be collected CONCURRENTLY
+    // with the CR wait. Waiting for CR first deadlocks both ways.
     item.cd_valid = 1'b0;
-    if (item.cr_resp[3]) begin  // PassDirty bit
-      item.cd_valid = 1'b1;
-      vif.driver_cb.cd_ready <= 1'b1;
-      item.cd_data = new[8];  // 8 words × 8B = 64B line
-      for (int i = 0; i < 8; i++) begin
-        do @(vif.driver_cb); while (!vif.driver_cb.cd_valid);
-        item.cd_data[i] = vif.driver_cb.cd_data;
-        if (vif.driver_cb.cd_last) begin
-          vif.driver_cb.cd_ready <= 1'b0;
-          break;
+    vif.driver_cb.cd_ready <= 1'b1;
+
+    fork
+      begin : snoop_rsp
+        fork
+          // CD beat collector — DUT sends CD before CR for dirty hits
+          begin : cd_collector
+            item.cd_data = new[8];  // 8 words × 8B = 64B line
+            for (int i = 0; i < 8; i++) begin
+              do @(vif.driver_cb); while (!vif.driver_cb.cd_valid);
+              item.cd_data[i] = vif.driver_cb.cd_data;  // #1step sample
+              if (vif.driver_cb.cd_last) begin
+                break;
+              end
+            end
+          end
+          // CR wait
+          begin : cr_wait
+            vif.driver_cb.cr_ready <= 1'b1;
+            do @(vif.driver_cb); while (!vif.driver_cb.cr_valid);
+            item.cr_resp = vif.driver_cb.cr_resp;  // #1step sample
+            vif.driver_cb.cr_ready <= 1'b0;
+          end
+        join_any
+        // CR arrived (or CD finished). If no PassDirty, no CD will ever come —
+        // kill the idle CD collector so drive_snoop can complete.
+        if (!item.cr_resp[1]) begin
+          item.cd_data = new[0];
+          disable fork;
         end
       end
-    end
+    join
+    item.cd_valid = item.cr_resp[1];  // PassDirty bit (CR_PASS_DIRTY=1)
+    vif.driver_cb.cd_ready <= 1'b0;
+
+    item.response_cycles = ($time - start_cycle) / 2; // divide by period
 
     `uvm_info("ACE_DRV", $sformatf(
       "Snoop complete: addr=0x%0h type=%0h resp=%05b cycles=%0d PassDirty=%0b",
       item.snoop_addr, item.snoop_type, item.cr_resp,
-      item.response_cycles, item.cr_resp[3]), UVM_MEDIUM)
+      item.response_cycles, item.cr_resp[1]), UVM_MEDIUM)
   endtask
 
 endclass
 
 // =============================================================================
-// ACE Snoop Monitor
+// ACE Snoop Monitor — raw wire sampling (see monitor_raw modport note)
 // =============================================================================
 class ace_snoop_monitor extends uvm_monitor;
   `uvm_component_utils(ace_snoop_monitor)
 
-  virtual ace_snoop_if.monitor vif;
+  virtual ace_snoop_if.monitor_raw vif;
   uvm_analysis_port #(ace_seq_item) ap;
 
   function new(string name, uvm_component parent);
     super.new(name, parent);
+    ap = new("ap", this);
   endfunction
 
   function void build_phase(uvm_phase phase);
     super.build_phase(phase);
-    ap = new("ap", this);
-    if (!uvm_config_db #(virtual ace_snoop_if.monitor)::get(
+    if (!uvm_config_db #(virtual ace_snoop_if.monitor_raw)::get(
           this, "", "ace_vif_mon", vif))
       `uvm_fatal("ACE_MON", "No virtual interface for ace_snoop_monitor")
   endfunction
@@ -166,30 +193,32 @@ class ace_snoop_monitor extends uvm_monitor;
     ace_seq_item item;
     int start_cycle;
 
+    wait (vif.rst_n === 1'b1);
+    @(posedge vif.clk);
     forever begin
-      // Wait for AC handshake
-      do @(vif.monitor_cb); while (!(vif.monitor_cb.ac_valid &&
-                                     vif.monitor_cb.ac_ready));
+      // Wait for AC handshake (raw wire sampling)
+      while (!(vif.ac_valid === 1'b1 && vif.ac_ready === 1'b1))
+        @(posedge vif.clk);
       start_cycle = $time;
       item = ace_seq_item::type_id::create("snoop_mon");
-      item.snoop_addr = vif.monitor_cb.ac_addr;
-      item.snoop_type = vif.monitor_cb.ac_snoop;
+      item.snoop_addr = vif.ac_addr;
+      item.snoop_type = vif.ac_snoop;
 
       // Wait for CR response
-      do @(vif.monitor_cb); while (!(vif.monitor_cb.cr_valid &&
-                                     vif.monitor_cb.cr_ready));
-      item.cr_resp = vif.monitor_cb.cr_resp;
+      while (!(vif.cr_valid === 1'b1 && vif.cr_ready === 1'b1))
+        @(posedge vif.clk);
+      item.cr_resp = vif.cr_resp;
       item.response_cycles = ($time - start_cycle) / 2;
 
       // Capture CD data if present
-      item.cd_valid = vif.monitor_cb.cr_resp[3]; // PassDirty
+      item.cd_valid = vif.cr_resp[1]; // PassDirty
       if (item.cd_valid) begin
         item.cd_data = new[8];
         for (int i = 0; i < 8; i++) begin
-          do @(vif.monitor_cb); while (!(vif.monitor_cb.cd_valid &&
-                                         vif.monitor_cb.cd_ready));
-          item.cd_data[i] = vif.monitor_cb.cd_data;
-          if (vif.monitor_cb.cd_last) break;
+          while (!(vif.cd_valid === 1'b1 && vif.cd_ready === 1'b1))
+            @(posedge vif.clk);
+          item.cd_data[i] = vif.cd_data;
+          if (vif.cd_last) break;
         end
       end
 

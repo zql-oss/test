@@ -180,6 +180,7 @@ class l2_ecc_no_false_alarm_test extends l2_base_test;
 
       // Write
       wr_item = axi_seq_item::type_id::create($sformatf("clean_wr_%0d", i));
+      seq.start(env.cpu_agent.sequencer);
       seq.start_item(wr_item);
       assert(wr_item.randomize() with {
         addr == local::addr; is_write == 1'b1; len == 8'd7;

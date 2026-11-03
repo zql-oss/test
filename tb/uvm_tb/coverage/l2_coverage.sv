@@ -105,7 +105,7 @@ class l2_coverage_collector extends uvm_subscriber #(axi_seq_item);
       bins make_invalid     = {4'hD};
     }
 
-    cp_snoop_hit_dirty: coverpoint last_snoop_item.cr_resp[3] {
+    cp_snoop_hit_dirty: coverpoint last_snoop_item.cr_resp[1] {
       bins pass_dirty = {1};
       bins no_dirty   = {0};
     }

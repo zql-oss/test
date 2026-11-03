@@ -61,7 +61,16 @@ module l2_tag_array
 
   // Flush interface
   input  logic                    flush_req,
-  output logic                    flush_done
+  output logic                    flush_done,
+
+  // Flush write-back handshake: dirty lines are written back BEFORE the
+  // entry is invalidated. addr = {tag, set, 6'h0}; top level sources the
+  // line data from the data array and drives the memory-side WB.
+  output logic                    flush_wb_valid,
+  output logic [TAG_BITS+INDEX_BITS+6-1:0] flush_wb_addr,
+  output logic [INDEX_BITS-1:0]   flush_wb_set,
+  output logic [$clog2(WAYS)-1:0] flush_wb_way,
+  input  logic                    flush_wb_done
 );
 
   // =========================================================================
@@ -85,6 +94,14 @@ module l2_tag_array
   // Flush FSM
   flush_state_t flush_state;
   logic [INDEX_BITS-1:0] flush_set_cnt;
+  logic [$clog2(WAYS)-1:0] flush_way_cnt;
+
+  // Flush write-back: current victim line (kept valid until WB completes)
+  assign flush_wb_valid = (flush_state == FLUSH_WRITEBACK);
+  assign flush_wb_set   = flush_set_cnt;
+  assign flush_wb_way   = flush_way_cnt;
+  assign flush_wb_addr  = {tag_ram[flush_set_cnt][flush_way_cnt].tag,
+                           flush_set_cnt, 6'b0};
 
   always_ff @(posedge clk or negedge rst_n) begin : tag_write_proc
     if (!rst_n) begin
@@ -105,20 +122,47 @@ module l2_tag_array
           if (flush_req) begin
             flush_state   <= FLUSH_SCAN;
             flush_set_cnt <= '0;
+            flush_way_cnt <= '0;
           end
         end
         FLUSH_SCAN: begin
-          // Invalidate all ways of current set
-          for (int w = 0; w < WAYS; w++) begin
-            tag_ram[flush_set_cnt][w].valid <= 1'b0;
-            tag_ram[flush_set_cnt][w].dirty <= 1'b0;
-            tag_ram[flush_set_cnt][w].mesi  <= MESI_INVALID;
-          end
-          if (flush_set_cnt == INDEX_BITS'(NUM_SETS - 1)) begin
-            flush_state <= FLUSH_DONE;
+          // Walk ways of the current set: dirty line → write back before
+          // invalidating; clean line → invalidate immediately
+          if (tag_ram[flush_set_cnt][flush_way_cnt].valid &&
+              tag_ram[flush_set_cnt][flush_way_cnt].dirty) begin
+            flush_state <= FLUSH_WRITEBACK;
           end else begin
-            flush_set_cnt <= flush_set_cnt + 1;
+            tag_ram[flush_set_cnt][flush_way_cnt].valid <= 1'b0;
+            tag_ram[flush_set_cnt][flush_way_cnt].dirty <= 1'b0;
+            tag_ram[flush_set_cnt][flush_way_cnt].mesi  <= MESI_INVALID;
+            flush_state <= FLUSH_NEXT;
           end
+        end
+
+        FLUSH_WRITEBACK: begin
+          // Hold the entry; the top level reads the line data and drives
+          // the memory-side WB, then pulses flush_wb_done
+          if (flush_wb_done) begin
+            tag_ram[flush_set_cnt][flush_way_cnt].valid <= 1'b0;
+            tag_ram[flush_set_cnt][flush_way_cnt].dirty <= 1'b0;
+            tag_ram[flush_set_cnt][flush_way_cnt].mesi  <= MESI_INVALID;
+            flush_state <= FLUSH_NEXT;
+          end
+        end
+
+        FLUSH_NEXT: begin
+          // Advance to the next way / set
+          if (flush_way_cnt == WAYS'(WAYS - 1)) begin
+            flush_way_cnt <= '0;
+            if (flush_set_cnt == INDEX_BITS'(NUM_SETS - 1)) begin
+              flush_state <= FLUSH_DONE;
+            end else begin
+              flush_set_cnt <= flush_set_cnt + 1'b1;
+            end
+          end else begin
+            flush_way_cnt <= flush_way_cnt + 1'b1;
+          end
+          flush_state <= FLUSH_SCAN;
         end
         FLUSH_DONE: begin
           flush_done  <= 1'b1;

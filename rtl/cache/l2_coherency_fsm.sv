@@ -55,6 +55,11 @@ module l2_coherency_fsm
   input  logic                   cd_ready,
 
   // Tag array interface (read by snoop unit)
+  // Dedicated snoop-side tag read port (the CPU-side tag outputs track
+  // pipe_set_index, not the snoop address — comparing against them made every
+  // snoop hit/miss arbitrarily)
+  output logic                   snoop_rd_en,
+  output logic [INDEX_BITS-1:0]  snoop_rd_index,
   input  logic [TAG_BITS-1:0]    tag_rd_data  [WAYS],
   input  logic                   valid_bit    [WAYS],
   input  logic                   dirty_bit    [WAYS],
@@ -121,6 +126,10 @@ module l2_coherency_fsm
   logic [$clog2(WORDS)-1:0] cd_beat_cnt;
 
   // =========================================================================
+  // Snoop tag read: issue while AC is being accepted so data is valid at LOOKUP
+  assign snoop_rd_en    = (coh_state == COH_IDLE) && ac_valid;
+  assign snoop_rd_index = ac_addr[INDEX_BITS+OFFSET_BITS-1:OFFSET_BITS];
+
   // Stage 0: AC handshake — accept snoop when FSM is idle
   // =========================================================================
   assign ac_ready = (coh_state == COH_IDLE);

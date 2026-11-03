@@ -41,7 +41,7 @@ class l2_coherency_seq_base extends uvm_sequence;
     output axi_seq_item  item
   );
     item = axi_seq_item::type_id::create("coh_rd");
-    start_item(item);
+    start_item(item, -1, get_sequencer());
     if (!item.randomize() with {
       addr == local::addr; is_write == 1'b0;
       len == 8'd7; size == 3'd3; burst == 2'd1;
@@ -56,7 +56,7 @@ class l2_coherency_seq_base extends uvm_sequence;
     output axi_seq_item item
   );
     item = axi_seq_item::type_id::create("coh_wr");
-    start_item(item);
+    start_item(item, -1, get_sequencer());
     if (!item.randomize() with {
       addr == local::addr; is_write == 1'b1;
       len == 8'd0; wdata[0] == local::data;
@@ -158,10 +158,10 @@ class l2_mesi_m_to_s_seq extends l2_coherency_seq_base;
 
     `uvm_info("COH", $sformatf(
       "M→S: snoop CRRESP=0b%05b PassDirty=%0b latency=%0d",
-      snoop_item.cr_resp, snoop_item.cr_resp[3],
+      snoop_item.cr_resp, snoop_item.cr_resp[1],
       snoop_item.response_cycles), UVM_MEDIUM)
 
-    if (!snoop_item.cr_resp[3])  // PassDirty bit
+    if (!snoop_item.cr_resp[1])  // PassDirty bit (CR_PASS_DIRTY=1 per l2_cache_pkg)
       `uvm_error("COH", "M→S: PassDirty=0 — dirty data not forwarded!")
     if (!snoop_item.cd_valid)
       `uvm_error("COH", "M→S: no CD data transfer despite PassDirty=1")
@@ -229,8 +229,8 @@ class l2_mesi_m_to_i_seq extends l2_coherency_seq_base;
 
     `uvm_info("COH", $sformatf(
       "M→I: CRRESP=0b%05b WasUnique=%0b",
-      snoop_item.cr_resp, snoop_item.cr_resp[0]), UVM_MEDIUM)
-    if (!snoop_item.cr_resp[0])  // WasUnique bit
+      snoop_item.cr_resp, snoop_item.cr_resp[4]), UVM_MEDIUM)
+    if (!snoop_item.cr_resp[4])  // WasUnique bit (bit4 per cr_resp_t: {was_unique,is_shared,error,pass_dirty,data_transfer})
       `uvm_error("COH", "M→I: WasUnique=0 — should have been unique")
 
     // Step 3: subsequent read should be a miss (line evicted)

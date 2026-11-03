@@ -190,7 +190,7 @@ endclass
 class axi_master_monitor extends uvm_monitor;
   `uvm_component_utils(axi_master_monitor)
 
-  virtual axi4_if.monitor vif;
+  virtual axi4_if.monitor_raw vif;
   uvm_analysis_port #(axi_seq_item) ap;
 
   function new(string name, uvm_component parent);
@@ -200,7 +200,7 @@ class axi_master_monitor extends uvm_monitor;
   function void build_phase(uvm_phase phase);
     super.build_phase(phase);
     ap = new("ap", this);
-    if (!uvm_config_db #(virtual axi4_if.monitor)::get(
+    if (!uvm_config_db #(virtual axi4_if.monitor_raw)::get(
           this, "", "axi_vif_mon", vif))
       `uvm_fatal("MEM_MON", "No virtual interface for axi_master_monitor")
   endfunction
@@ -214,23 +214,34 @@ class axi_master_monitor extends uvm_monitor;
 
   task monitor_fills();
     axi_seq_item item;
+    // Reset guard — avoid phantom handshakes while DUT outputs are X
+    wait (vif.rst_n === 1'b1);
+    @(posedge vif.clk);
     forever begin
-      // Wait for AR handshake
-      do @(vif.monitor_cb); while (!(vif.monitor_cb.arvalid &&
-                                     vif.monitor_cb.arready));
+      // Wait for AR handshake (raw wire sampling)
+      while (!(vif.arvalid === 1'b1 && vif.arready === 1'b1))
+        @(posedge vif.clk);
       item          = axi_seq_item::type_id::create("fill_mon");
-      item.addr     = vif.monitor_cb.araddr;
-      item.len      = vif.monitor_cb.arlen;
-      item.id       = vif.monitor_cb.arid;
+      item.addr     = vif.araddr;
+      item.len      = vif.arlen;
+      item.id       = vif.arid;
       item.is_write = 1'b0;
       item.rdata    = new[item.len + 1];
 
-      // Collect R beats
+      // Collect R beats until RLAST
       for (int b = 0; b <= item.len; b++) begin
-        do @(vif.monitor_cb); while (!(vif.monitor_cb.rvalid &&
-                                       vif.monitor_cb.rready));
-        item.rdata[b] = vif.monitor_cb.rdata;
-        item.resp     = vif.monitor_cb.rresp;
+        while (!(vif.rvalid === 1'b1 && vif.rready === 1'b1))
+          @(posedge vif.clk);
+        item.rdata[b] = vif.rdata;
+        item.resp     = vif.rresp;
+        if (vif.rlast || b == item.len) begin
+          if (b < item.len) begin
+            // Early termination — shrink but PRESERVE collected beats
+            axi_seq_item_beat_shrink(item.rdata, b + 1);
+          end
+          break;
+        end
+        @(posedge vif.clk);
       end
       ap.write(item);
       `uvm_info("MEM_MON", $sformatf(
@@ -240,29 +251,41 @@ class axi_master_monitor extends uvm_monitor;
 
   task monitor_writebacks();
     axi_seq_item item;
+    // Reset guard — see monitor_fills
+    wait (vif.rst_n === 1'b1);
+    @(posedge vif.clk);
     forever begin
-      do @(vif.monitor_cb); while (!(vif.monitor_cb.awvalid &&
-                                     vif.monitor_cb.awready));
+      while (!(vif.awvalid === 1'b1 && vif.awready === 1'b1))
+        @(posedge vif.clk);
       item          = axi_seq_item::type_id::create("wb_mon");
-      item.addr     = vif.monitor_cb.awaddr;
-      item.len      = vif.monitor_cb.awlen;
-      item.id       = vif.monitor_cb.awid;
+      item.addr     = vif.awaddr;
+      item.len      = vif.awlen;
+      item.id       = vif.awid;
       item.is_write = 1'b1;
       item.wdata    = new[item.len + 1];
       item.wstrb    = new[item.len + 1];
 
       for (int b = 0; b <= item.len; b++) begin
-        do @(vif.monitor_cb); while (!(vif.monitor_cb.wvalid &&
-                                       vif.monitor_cb.wready));
-        item.wdata[b] = vif.monitor_cb.wdata;
-        item.wstrb[b] = vif.monitor_cb.wstrb;
+        while (!(vif.wvalid === 1'b1 && vif.wready === 1'b1))
+          @(posedge vif.clk);
+        item.wdata[b] = vif.wdata;
+        item.wstrb[b] = vif.wstrb;
+        if (vif.wlast || b == item.len) begin
+          if (b < item.len) begin
+            item.wdata = new[b + 1];
+            item.wstrb = new[b + 1];
+          end
+          break;
+        end
+        @(posedge vif.clk);
       end
-      do @(vif.monitor_cb); while (!(vif.monitor_cb.bvalid &&
-                                     vif.monitor_cb.bready));
-      item.resp = vif.monitor_cb.bresp;
+
+      while (!(vif.bvalid === 1'b1 && vif.bready === 1'b1))
+        @(posedge vif.clk);
+      item.resp = vif.bresp;
       ap.write(item);
       `uvm_info("MEM_MON", $sformatf(
-        "Write-back monitored: addr=0x%0h", item.addr), UVM_HIGH)
+        "Writeback monitored: addr=0x%0h beats=%0d", item.addr, item.len+1), UVM_HIGH)
     end
   endtask
 

@@ -98,6 +98,7 @@ class l2_perf_streaming_test extends l2_base_test;
 
     for (int i = 0; i < num_lines; i++) begin
       item = axi_seq_item::type_id::create($sformatf("stream_%0d", i));
+      seq.start(env.cpu_agent.sequencer);
       seq.start_item(item);
       assert(item.randomize() with {
         is_write == 1'b0;
@@ -149,6 +150,7 @@ class l2_perf_working_set_test extends l2_base_test;
     for (int pass = 0; pass < PASSES; pass++) begin
       for (int i = 0; i < num_lines; i++) begin
         item = axi_seq_item::type_id::create($sformatf("ws_p%0d_l%0d", pass, i));
+        seq.start(env.cpu_agent.sequencer);
         seq.start_item(item);
         assert(item.randomize() with {
           is_write == 1'b0;
@@ -202,6 +204,7 @@ class l2_perf_thrashing_test extends l2_base_test;
     for (int pass = 0; pass < PASSES; pass++) begin
       for (int i = 0; i < num_lines; i++) begin
         item = axi_seq_item::type_id::create($sformatf("thr_p%0d_l%0d", pass, i));
+        seq.start(env.cpu_agent.sequencer);
         seq.start_item(item);
         assert(item.randomize() with {
           is_write == 1'b0;
@@ -246,6 +249,7 @@ class l2_perf_mixed_rw_test extends l2_base_test;
     // Warm up cache first
     for (int i = 0; i < 64; i++) begin
       item = axi_seq_item::type_id::create($sformatf("warm_%0d", i));
+      seq.start(env.cpu_agent.sequencer);
       seq.start_item(item);
       assert(item.randomize() with {
         is_write == 1'b0; len == 8'd7;

@@ -39,6 +39,7 @@ module l2_mshr
   input  logic                    alloc_req,
   input  logic [ADDR_WIDTH-1:0]   alloc_addr,      // full physical address
   input  logic [ID_WIDTH-1:0]     alloc_id,
+  input  logic [7:0]              alloc_len,       // CPU burst length (ARLEN/AWLEN)
   input  logic                    alloc_is_write,
   input  logic [DATA_WIDTH-1:0]   alloc_wdata,
   input  logic [DATA_WIDTH/8-1:0] alloc_wstrb,
@@ -47,6 +48,18 @@ module l2_mshr
   output logic [PTR_W-1:0]        alloc_idx,       // allocated entry index
   output logic                    alloc_merged,     // 1 = merged into existing
   output logic                    full,             // 1 = no free entries
+  output logic                    line_match_hit,   // incoming line already tracked
+
+  // External probes: same-line checks against arbitrary addresses. The top
+  // level probes with the CURRENT incoming AR/AW addresses (and the latched
+  // write address) to stall the front door — alloc_addr/line_match_hit are
+  // only meaningful during the allocation cycle.
+  input  logic [ADDR_WIDTH-1:0]   probe_rd_addr,
+  output logic                    probe_rd_hit,
+  input  logic [ADDR_WIDTH-1:0]   probe_aw_addr,
+  output logic                    probe_aw_hit,
+  input  logic [ADDR_WIDTH-1:0]   probe_lat_addr,
+  output logic                    probe_lat_hit,
 
   // -------------------------------------------------------------------------
   // Fill complete port — from AXI master when fill data arrives
@@ -55,6 +68,7 @@ module l2_mshr
   input  logic [ADDR_WIDTH-1:0]   fill_addr,       // cache-line aligned
   input  logic [DATA_WIDTH-1:0]   fill_data [WORDS_PER_LINE],  // full cache line words
   output logic [PTR_W-1:0]        fill_entry_idx,  // which MSHR entry matched
+  output logic [2:0]              fill_req_offset, // word offset of that entry's request
 
   // -------------------------------------------------------------------------
   // Write-back port — dirty eviction before fill
@@ -71,6 +85,7 @@ module l2_mshr
   output logic [ID_WIDTH-1:0]     resp_id,
   output logic [DATA_WIDTH-1:0]   resp_data [WORDS_PER_LINE],
   output logic                    resp_is_write,
+  output logic [7:0]              resp_len,        // CPU burst length of the responding entry
   input  logic                    resp_accepted,
 
   // -------------------------------------------------------------------------
@@ -96,13 +111,28 @@ module l2_mshr
   logic             any_match;
   logic [PTR_W-1:0] match_idx;
 
+  logic [DEPTH-1:0] probe_rd_match;
+  logic [DEPTH-1:0] probe_aw_match;
+  logic [DEPTH-1:0] probe_lat_match;
+  logic             probe_any;
+
   always_comb begin : addr_match
     for (int i = 0; i < DEPTH; i++) begin
-      line_match[i] = mshr[i].valid &&
-                      (mshr[i].addr[ADDR_WIDTH-1:6] ==
-                       alloc_addr[ADDR_WIDTH-1:6]);
+      line_match[i]     = mshr[i].valid &&
+                          (mshr[i].addr[ADDR_WIDTH-1:6] ==
+                           alloc_addr[ADDR_WIDTH-1:6]);
+      probe_rd_match[i] = mshr[i].valid &&
+                          (mshr[i].addr[ADDR_WIDTH-1:6] ==
+                           probe_rd_addr[ADDR_WIDTH-1:6]);
+      probe_aw_match[i] = mshr[i].valid &&
+                          (mshr[i].addr[ADDR_WIDTH-1:6] ==
+                           probe_aw_addr[ADDR_WIDTH-1:6]);
+      probe_lat_match[i]= mshr[i].valid &&
+                          (mshr[i].addr[ADDR_WIDTH-1:6] ==
+                           probe_lat_addr[ADDR_WIDTH-1:6]);
     end
-    any_match = |line_match;
+    any_match  = |line_match;
+    probe_any  = |probe_rd_match;
     // Priority encode the first match
     match_idx = '0;
     for (int i = DEPTH-1; i >= 0; i--) begin
@@ -129,6 +159,10 @@ module l2_mshr
   end
 
   assign full = !any_free && !any_match;
+  assign line_match_hit = any_match;
+  assign probe_rd_hit   = probe_any;
+  assign probe_aw_hit   = |probe_aw_match;
+  assign probe_lat_hit  = |probe_lat_match;
 
   // =========================================================================
   // Allocation index and merge flag
@@ -154,9 +188,26 @@ module l2_mshr
     end
   end
 
+  assign fill_req_offset = mshr[fill_entry_idx].addr[5:3];
+
   // =========================================================================
   // MSHR state machine — per-entry updates
   // =========================================================================
+  // Per-entry captured fill line: written when the fill completes, held until
+  // the entry is freed. resp_data sources the winning entry — stable for the
+  // whole multi-beat response even with multiple outstanding fills.
+  mshr_fill_line_t mshr_fill_data [DEPTH];
+
+  always_ff @(posedge clk) begin : fill_data_capture
+    if (fill_valid && |fill_match_vec) begin
+      for (int w = 0; w < WORDS_PER_LINE; w++)
+        mshr_fill_data[fill_entry_idx][w] <= fill_data[w];
+    end
+  end
+
+  // resp_data declared later (below complete_vec/resp_idx) — forward reference
+  // is illegal for continuous assign on unpacked arrays; moved after resp_idx.
+
   always_ff @(posedge clk or negedge rst_n) begin : mshr_state_update
     if (!rst_n) begin
       for (int i = 0; i < DEPTH; i++) begin
@@ -172,6 +223,7 @@ module l2_mshr
           mshr[free_idx].state     <= MSHR_PENDING;
           mshr[free_idx].addr      <= alloc_addr;
           mshr[free_idx].req_id    <= alloc_id;
+          mshr[free_idx].req_len   <= alloc_len;
           mshr[free_idx].is_write  <= alloc_is_write;
           mshr[free_idx].wdata     <= alloc_wdata;
           mshr[free_idx].wstrb     <= alloc_wstrb;
@@ -239,7 +291,8 @@ module l2_mshr
 
   assign resp_id       = mshr[resp_idx].req_id;
   assign resp_is_write = mshr[resp_idx].is_write;
-  // resp_data is connected to the data array fill path in top level
+  assign resp_len      = mshr[resp_idx].req_len;
+  assign resp_data     = mshr_fill_data[resp_idx];
 
   // =========================================================================
   // Write-back generation — MSHR_WB_PENDING entries

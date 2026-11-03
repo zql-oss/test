@@ -170,17 +170,17 @@ module l2_cache_tb_top;
     // CPU agent
     uvm_config_db #(virtual axi4_if.driver)::set(
       null, "*.env.cpu_agent.driver",  "axi_vif",     cpu_if);
-    uvm_config_db #(virtual axi4_if.monitor)::set(
+    uvm_config_db #(virtual axi4_if.monitor_raw)::set(
       null, "*.env.cpu_agent.monitor", "axi_vif_mon", cpu_if);
     // Memory agent (memory-side slave view)
     uvm_config_db #(virtual axi4_if.mem)::set(
       null, "*.env.mem_agent.driver",  "axi_vif",     mem_if);
-    uvm_config_db #(virtual axi4_if.monitor)::set(
+    uvm_config_db #(virtual axi4_if.monitor_raw)::set(
       null, "*.env.mem_agent.monitor", "axi_vif_mon", mem_if);
     // Snoop agent
     uvm_config_db #(virtual ace_snoop_if.driver)::set(
       null, "*.env.snoop_agent.driver",  "ace_vif",     snoop_if);
-    uvm_config_db #(virtual ace_snoop_if.monitor)::set(
+    uvm_config_db #(virtual ace_snoop_if.monitor_raw)::set(
       null, "*.env.snoop_agent.monitor", "ace_vif_mon", snoop_if);
   end
 

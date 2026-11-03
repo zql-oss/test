@@ -9,7 +9,6 @@
 // ============================================================
 
 -timescale=1ns/1ps
-+vcs+lic+wait
 +define+SIMULATION
 +define+UVM_NO_DEPRECATED
 
@@ -54,7 +53,6 @@ tb/assertions/l2_cache_assertions.sv
 tb/top/l2_cache_tb_top.sv
 
 // ── DFT RTL (compile for BIST/scan simulation) ─────────────────────
-+define+SIMULATION
 +incdir+dft/rtl
 dft/rtl/l2_scan_wrapper.sv
 dft/rtl/l2_bist_ctrl.sv
@@ -77,7 +75,7 @@ tb/uvm_tb/tests/directed/l2_performance_test.sv
 // ── DPI ────────────────────────────────────────────────────────────
 // NOTE: -sv_lib is a RUNTIME option — pass it to simv, not in this
 // compile filelist (VCS would try to open it as a source file):
-//     simv ... -sv_lib tb/dpi/ecc_inject   (loads tb/dpi/libecc_inject.so)
+//     simv ... -sv_lib tb/dpi/ecc_inject   (loads tb/dpi/ecc_inject.so)
 
 // ── Extended test classes (plan gap fill) ──────────────────────────
 tb/uvm_tb/tests/l2_tests_extended.sv

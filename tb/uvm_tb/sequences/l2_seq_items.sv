@@ -13,6 +13,16 @@ import uvm_pkg::*;
 // =============================================================================
 // AXI sequence item — represents one AXI4 read or write transaction
 // =============================================================================
+// Shrink a collected beat array to n entries, preserving already-sampled beats.
+// (naive `arr = new[n]` reallocates and wipes the data)
+function automatic void axi_seq_item_beat_shrink(ref logic [63:0] beats[], input int n);
+  logic [63:0] keep[];
+  if (n >= beats.size()) return;
+  keep = new[n];
+  foreach (keep[i]) keep[i] = beats[i];
+  beats = keep;
+endfunction
+
 class axi_seq_item extends uvm_sequence_item;
   `uvm_object_utils_begin(axi_seq_item)
     `uvm_field_int(addr,     UVM_ALL_ON)
@@ -62,9 +72,9 @@ class axi_seq_item extends uvm_sequence_item;
     size == 3'b011;
   }
 
-  // Reasonable burst lengths
+  // Reasonable burst lengths (AXI INCR max = 16 beats, len=15)
   constraint c_len_reasonable {
-    len inside {[0:7]};
+    len inside {[0:15]};
   }
 
   // Write data array sized to burst length
@@ -147,8 +157,14 @@ class l2_seq_base extends uvm_sequence #(axi_seq_item);
     super.new(name);
   endfunction
 
-  // Helper: perform a single cache-line-aligned read
+  // Static default sequencer, set once by the base test. Lets the do_* helpers
+  // work even when a test calls them without seq.start().
+  static axi_sequencer m_default_sqr;
+
+  // Helpers must work whether or not the caller called start(): fall back to
+  // the static default sequencer.
   task do_cacheline_read(input logic [39:0] addr, output axi_seq_item item);
+    if (get_sequencer() == null && m_default_sqr != null) set_sequencer(m_default_sqr);
     item = axi_seq_item::type_id::create("cl_rd");
     start_item(item);
     if (!item.randomize() with {
@@ -159,12 +175,30 @@ class l2_seq_base extends uvm_sequence #(axi_seq_item);
     finish_item(item);
   endtask
 
+  // Helper: perform a single 64-bit read (len=0 — hit latency stays small
+  // enough for the write-allocate test's latency-based hit check)
+  task do_word_read(
+    input  logic [39:0] addr,
+    output axi_seq_item item
+  );
+    if (get_sequencer() == null && m_default_sqr != null) set_sequencer(m_default_sqr);
+    item = axi_seq_item::type_id::create("w_rd");
+    start_item(item);
+    if (!item.randomize() with {
+      addr     == local::addr;
+      is_write == 1'b0;
+      len      == 8'd0;
+    }) `uvm_fatal("SEQ", "Randomization failed for word read")
+    finish_item(item);
+  endtask
+
   // Helper: perform a single 64-bit write
   task do_word_write(
     input logic [39:0] addr,
     input logic [63:0] data,
     output axi_seq_item item
   );
+    if (get_sequencer() == null && m_default_sqr != null) set_sequencer(m_default_sqr);
     item = axi_seq_item::type_id::create("w_wr");
     start_item(item);
     if (!item.randomize() with {
@@ -190,7 +224,7 @@ class l2_read_after_write_seq extends l2_seq_base;
   rand int          num_transactions;
 
   constraint c_addr { base_addr[5:0] == 6'b0; }
-  constraint c_num  { num_transactions inside {[1:16]}; }
+  constraint c_num  { num_transactions inside {[1:4096]}; }
 
   function new(string name = "l2_read_after_write_seq");
     super.new(name);
@@ -240,7 +274,7 @@ class l2_false_sharing_seq extends l2_seq_base;
   rand int          iterations;
 
   constraint c_aligned   { shared_line_addr[5:0] == 6'b0; }
-  constraint c_iters     { iterations inside {[10:100]}; }
+  constraint c_iters     { iterations inside {[10:1000]}; }
 
   function new(string name = "l2_false_sharing_seq");
     super.new(name);
@@ -275,7 +309,7 @@ class l2_outstanding_miss_seq extends l2_seq_base;
       for (int i = 0; i < outstanding_count; i++) begin
         automatic int idx = i;
         items[idx] = axi_seq_item::type_id::create($sformatf("miss_%0d", idx));
-        start_item(items[idx]);
+        start_item(items[idx], -1, get_sequencer());
         if (!items[idx].randomize() with {
           is_write == 1'b0;
           len      == 8'd7;
@@ -296,7 +330,7 @@ class l2_random_traffic_seq extends l2_seq_base;
   rand int num_ops;
   rand int write_pct;  // percentage of writes
 
-  constraint c_num_ops  { num_ops   inside {[50:500]}; }
+  constraint c_num_ops  { num_ops   inside {[50:5000]}; }
   constraint c_wr_pct   { write_pct inside {[0:100]}; }
 
   function new(string name = "l2_random_traffic_seq");
@@ -308,7 +342,7 @@ class l2_random_traffic_seq extends l2_seq_base;
     bit do_write;
     for (int i = 0; i < num_ops; i++) begin
       item = axi_seq_item::type_id::create($sformatf("rand_op_%0d", i));
-      start_item(item);
+      start_item(item, -1, get_sequencer());
       // $urandom_range is not supported inside constraints by VCS O-2018.09
       // (NYI-CSTR-SYS-FTC) — decide here, constrain the state variable.
       do_write = ($urandom_range(0, 99) < write_pct);

@@ -86,11 +86,16 @@ package l2_cache_pkg;
     mshr_state_t state;
     logic [39:0] addr;      // physical address (parameterize if needed)
     logic [7:0]  req_id;
+    logic [7:0]  req_len;   // CPU-side burst length (ARLEN/AWLEN) of the request
     logic        is_write;
     logic [63:0] wdata;
     logic [7:0]  wstrb;
     logic        prefetch;  // set for HW prefetch entries
   } mshr_entry_t;
+
+  // Per-entry fill data storage (unpacked companion — kept out of the packed
+  // struct for synthesis friendliness; index-aligned with mshr[])
+  typedef logic [63:0] mshr_fill_line_t [8];
 
   // ---------------------------------------------------------------------------
   // Cache pipeline stage type
@@ -164,7 +169,7 @@ package l2_cache_pkg;
     FLUSH_IDLE     = 3'b000,
     FLUSH_SCAN     = 3'b001,
     FLUSH_WRITEBACK= 3'b010,
-    FLUSH_WAIT_ACK = 3'b011,
+    FLUSH_NEXT     = 3'b011,
     FLUSH_DONE     = 3'b100
   } flush_state_t;
 

@@ -55,9 +55,21 @@ class l2_base_test extends uvm_test;
     end
   endfunction
 
+  function void end_of_elaboration_phase(uvm_phase phase);
+    super.end_of_elaboration_phase(phase);
+    // Install the default sequencer for l2_seq_base::do_* helpers so tests
+    // that call them without seq.start() still drive the CPU sequencer.
+    l2_seq_base::m_default_sqr = env.cpu_agent.sequencer;
+  endfunction
+
   task run_phase(uvm_phase phase);
     phase.raise_objection(this);
     run_test_body(phase);
+    // Drain: let monitors publish in-flight items before the phase ends.
+    // The final response often lands on the same clock edge the sequence
+    // finishes; without drain, the monitor loses the race and the
+    // scoreboard reports 0 checks.
+    phase.phase_done.set_drain_time(this, 200ns);
     phase.drop_objection(this);
   endtask
 
@@ -109,6 +121,8 @@ class l2_smoke_write_test extends l2_base_test;
     axi_seq_item item;
     l2_seq_base seq;
     seq = l2_seq_base::type_id::create("smoke_wr");
+    item = axi_seq_item::type_id::create("wr");
+    seq.start(env.cpu_agent.sequencer);
     item = axi_seq_item::type_id::create("wr");
     seq.start_item(item);
     if (!item.randomize() with {
@@ -245,6 +259,7 @@ class l2_mesi_snoop_read_shared_test extends l2_base_test;
     ace_seq_item snoop_item;
 
     cpu_seq = l2_seq_base::type_id::create("coh_seq");
+    cpu_seq.start(env.cpu_agent.sequencer);
 
     // Step 1: write to bring line into M state
     cpu_seq.do_word_write(40'h0000_C000, 64'hDEAD_C0DE_1234_5678, item);
@@ -271,6 +286,7 @@ class l2_mesi_snoop_invalidate_test extends l2_base_test;
     axi_seq_item rd_item, wr_item;
 
     cpu_seq = l2_seq_base::type_id::create("inv_seq");
+    cpu_seq.start(env.cpu_agent.sequencer);
 
     // Bring line into S state via read
     cpu_seq.do_cacheline_read(40'h0000_E000, rd_item);

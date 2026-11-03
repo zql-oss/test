@@ -9,11 +9,12 @@
 ###############################################################################
 
 # ── Configuration (override on command line) ──────────────────────────────────
-TOOL        ?= vcs          # vcs | xcelium
+TOOL        ?= vcs
 TEST        ?= l2_smoke_read_test
 SEED        ?= 1
 VERBOSITY   ?= UVM_MEDIUM
 JOBS        ?= 8
+SEEDS       ?= 3
 TAG         ?= regression
 WAVES       ?= 0
 
@@ -38,7 +39,7 @@ COV_DIR     := $(RPT_DIR)/coverage
 WAVE_OPT    := $(if $(filter 1,$(WAVES)),+DUMP_WAVES,)
 
 .PHONY: all compile sim regression regression_ci regression_nightly \
-        cov_merge cov_report cov_all dpi lint cdc synth synth_sweep formal \
+        run cov_merge cov_report cov_all dpi lint cdc synth synth_sweep formal \
         clean help
 
 # ── Default ───────────────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ compile: dpi
 ifeq ($(TOOL),vcs)
 	@echo ">>> [VCS] Compiling..."
 	vcs -full64 -sverilog -ntb_opts uvm-1.2 -assert svaext \
+	    +vcs+lic+wait \
 	    -f sim/vcs/vcs_filelist.f \
 	    $(COV_CFLAGS) \
 	    -o $(SIM_OUT) \
@@ -105,7 +107,16 @@ endif
 ###############################################################################
 # Regression
 ###############################################################################
-regression: compile
+run: dpi
+	@echo ">>> [One-click VCS] regression + scoreboard + coverage..."
+	bash run_vcs.sh
+
+regression: dpi
+ifeq ($(TOOL),vcs)
+	@echo ">>> [Regression/VCS] $(JOBS) parallel jobs, plan seeds (cap $(SEEDS))..."
+	JOBS=$(JOBS) SEEDS=$(SEEDS) bash scripts/run_all_vcs.sh
+else
+	$(MAKE) compile --no-print-directory
 	@echo ">>> [Regression] $(JOBS) parallel jobs, 3 seeds/test..."
 	python3 scripts/regression/run_regression.py \
 	    --plan  scripts/regression/test_plan.yaml \
@@ -114,8 +125,14 @@ regression: compile
 	    $(REG_COV) \
 	    --seeds 3
 	@echo ">>> HTML report: reports/regression/regression_report.html"
+endif
 
-regression_ci: compile
+regression_ci: dpi
+ifeq ($(TOOL),vcs)
+	@echo ">>> [Regression CI/VCS] tag=ci, 1 seed..."
+	JOBS=$(JOBS) SEEDS=1 TAG=ci bash scripts/run_all_vcs.sh
+else
+	$(MAKE) compile --no-print-directory
 	@echo ">>> [Regression CI] smoke + directed, 1 seed..."
 	python3 scripts/regression/run_regression.py \
 	    --plan  scripts/regression/test_plan.yaml \
@@ -124,8 +141,14 @@ regression_ci: compile
 	    --tag   ci \
 	    $(REG_COV) \
 	    --seeds 1
+endif
 
-regression_nightly: compile
+regression_nightly: dpi
+ifeq ($(TOOL),vcs)
+	@echo ">>> [Regression Nightly/VCS] plan seeds (cap 10), 16 jobs..."
+	JOBS=16 SEEDS=10 bash scripts/run_all_vcs.sh
+else
+	$(MAKE) compile --no-print-directory
 	@echo ">>> [Regression Nightly] all tests, 10 seeds..."
 	python3 scripts/regression/run_regression.py \
 	    --plan  scripts/regression/test_plan.yaml \
@@ -133,6 +156,7 @@ regression_nightly: compile
 	    --jobs  16 \
 	    $(REG_COV) \
 	    --seeds 10
+endif
 
 ###############################################################################
 # One-click: compile + run all tests with coverage + merge + report
@@ -255,6 +279,7 @@ help:
 	@echo "║    make compile                    Compile RTL + TB      ║"
 	@echo "║    make sim TEST=<name>            Run single test       ║"
 	@echo "║    make sim TEST=<name> WAVES=1    Run + dump waves      ║"
+	@echo "║    make run                        Regression + scoreboard║"
 	@echo "║    make regression                 Full regression (8j)  ║"
 	@echo "║    make regression_ci              CI smoke + directed   ║"
 	@echo "║    make regression_nightly         All tests × 10 seeds  ║"

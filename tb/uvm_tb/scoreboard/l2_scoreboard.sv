@@ -88,84 +88,77 @@ class l2_scoreboard extends uvm_scoreboard;
   endfunction
 
   task run_phase(uvm_phase phase);
-    fork
-      check_reads();
-      check_writes();
-      check_snoops();
-    join
+    demux_checks();
   endtask
 
   // -------------------------------------------------------------------------
-  // Read data checker
+  // Single-consumer demux: both checkers used to draw from the SAME
+  // actual_fifo, so each item was consumed by whichever thread woke first
+  // (a read item could be swallowed by the write checker and vice versa, starving both).
+  // One consumer demultiplexes by transaction type instead.
   // -------------------------------------------------------------------------
-  task check_reads();
-    axi_seq_item actual, expected;
-    forever begin
-      actual_fifo.get(actual);
-      if (!actual.is_write) begin
-        // Wait for matching expected item (matched by ID)
-        expected_fifo.get(expected);
+  task demux_checks();
+    axi_seq_item item, expected;
+    fork
+      begin
+        forever begin
+          actual_fifo.get(item);
+          if (item.is_write) begin
+            total_write_checks++;
 
-        total_read_checks++;
+            if (item.resp !== 2'b00) begin
+              `uvm_error("SB", $sformatf(
+                "WRITE ERROR BRESP=0x%0h addr=0x%0h id=0x%0h",
+                item.resp, item.addr, item.id))
+              resp_errors++;
+            end
 
-        // Check response code
-        if (actual.resp !== 2'b00) begin
-          `uvm_error("SB", $sformatf(
-            "READ ERROR resp=0x%0h addr=0x%0h id=0x%0h",
-            actual.resp, actual.addr, actual.id))
-          resp_errors++;
-        end
+            // Update golden memory model
+            golden_mem[{item.addr[39:3], 3'b0}] = item.wdata[0];
 
-        // Check data match
-        for (int i = 0; i < actual.rdata.size(); i++) begin
-          if (actual.rdata[i] !== expected.rdata[i]) begin
-            `uvm_error("SB", $sformatf(
-              "READ DATA MISMATCH addr=0x%0h beat=%0d actual=0x%0h expected=0x%0h",
-              actual.addr, i, actual.rdata[i], expected.rdata[i]))
-            data_mismatches++;
+            `uvm_info("SB", $sformatf(
+              "WRITE CHECK PASS addr=0x%0h data=0x%0h",
+              item.addr, item.wdata[0]), UVM_HIGH)
+          end else begin
+            // Wait for matching expected item (matched by ID)
+            expected_fifo.get(expected);
+
+            total_read_checks++;
+
+            // Check response code
+            if (item.resp !== 2'b00) begin
+              `uvm_error("SB", $sformatf(
+                "READ ERROR resp=0x%0h addr=0x%0h id=0x%0h",
+                item.resp, item.addr, item.id))
+              resp_errors++;
+            end
+
+            // Check data match
+            for (int i = 0; i < item.rdata.size(); i++) begin
+              if (item.rdata[i] !== expected.rdata[i]) begin
+                `uvm_error("SB", $sformatf(
+                  "READ DATA MISMATCH addr=0x%0h beat=%0d actual=0x%0h expected=0x%0h",
+                  item.addr, i, item.rdata[i], expected.rdata[i]))
+                data_mismatches++;
+              end
+            end
+
+            // Check latency SLA
+            if (item.latency > MAX_MISS_LATENCY_CYCLES) begin
+              `uvm_warning("SB", $sformatf(
+                "READ LATENCY EXCEEDED addr=0x%0h latency=%0d (max=%0d)",
+                item.addr, item.latency, MAX_MISS_LATENCY_CYCLES))
+              latency_violations++;
+            end
+
+            `uvm_info("SB", $sformatf(
+              "READ CHECK PASS addr=0x%0h latency=%0d cycles",
+              item.addr, item.latency), UVM_HIGH)
           end
         end
-
-        // Check latency SLA
-        if (actual.latency > MAX_MISS_LATENCY_CYCLES) begin
-          `uvm_warning("SB", $sformatf(
-            "READ LATENCY EXCEEDED addr=0x%0h latency=%0d (max=%0d)",
-            actual.addr, actual.latency, MAX_MISS_LATENCY_CYCLES))
-          latency_violations++;
-        end
-
-        `uvm_info("SB", $sformatf(
-          "READ CHECK PASS addr=0x%0h latency=%0d cycles",
-          actual.addr, actual.latency), UVM_HIGH)
       end
-    end
-  endtask
-
-  // -------------------------------------------------------------------------
-  // Write checker: verify BVALID/BRESP
-  // -------------------------------------------------------------------------
-  task check_writes();
-    axi_seq_item item;
-    forever begin
-      actual_fifo.get(item);
-      if (item.is_write) begin
-        total_write_checks++;
-
-        if (item.resp !== 2'b00) begin
-          `uvm_error("SB", $sformatf(
-            "WRITE ERROR BRESP=0x%0h addr=0x%0h id=0x%0h",
-            item.resp, item.addr, item.id))
-          resp_errors++;
-        end
-
-        // Update golden memory model
-        golden_mem[{item.addr[39:3], 3'b0}] = item.wdata[0];
-
-        `uvm_info("SB", $sformatf(
-          "WRITE CHECK PASS addr=0x%0h data=0x%0h",
-          item.addr, item.wdata[0]), UVM_HIGH)
-      end
-    end
+      check_snoops();
+    join
   endtask
 
   // -------------------------------------------------------------------------
@@ -185,7 +178,7 @@ class l2_scoreboard extends uvm_scoreboard;
       end
 
       // If PassDirty is set, CD data must be present
-      if (snoop.cr_resp[3] && !snoop.cd_valid) begin
+      if (snoop.cr_resp[1] && !snoop.cd_valid) begin
         `uvm_error("SB", $sformatf(
           "SNOOP PassDirty=1 but no CD data — addr=0x%0h",
           snoop.snoop_addr))

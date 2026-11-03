@@ -1,0 +1,99 @@
+{
+  "source": "UVS 2026.06.P2.Beta, 200 runs, merged 201 cdb",
+  "tool": "uvcov",
+  "test_count": 200,
+  "weights": "stmt:1, cond:1, tgl:1, fsm:1, assert:1, group:1",
+  "summary": {
+    "total": {
+      "score": 26.86
+    },
+    "stmt": {
+      "score": 42.84,
+      "un+cd": 1557,
+      "un": 890,
+      "cd": 667
+    },
+    "cond": {
+      "score": 26.48,
+      "un+cd": 525,
+      "un": 386,
+      "cd": 139
+    },
+    "tgl": {
+      "score": 25.88,
+      "un+cd": 24988,
+      "un": 18520,
+      "cd": 6468
+    },
+    "assert": {
+      "score": 29.69,
+      "un+cd": 128,
+      "un": 90,
+      "cd": 38
+    },
+    "fsm": {
+      "score": 23.26,
+      "un+cd": 172,
+      "un": 132,
+      "cd": 40
+    },
+    "group": {
+      "score": 13.0,
+      "un+cd": 89,
+      "un": 77,
+      "cd": 12
+    }
+  },
+  "group": {
+    "group": {
+      "score": 13.0,
+      "un+cd": 89,
+      "un": 77,
+      "cd": 12,
+      "inst_score": 13.0,
+      "inst_num": 5
+    },
+    "group_inst": {
+      "score": 13.0,
+      "un+cd": 89,
+      "un": 77,
+      "cd": 12
+    },
+    "group_cp": {
+      "score": 6.67,
+      "un+cd": 15,
+      "un": 14,
+      "cd": 1
+    },
+    "group_cp_bin": {
+      "score": 14.89,
+      "un+cd": 47,
+      "un": 40,
+      "cd": 7
+    },
+    "group_cr": {
+      "score": 0.0,
+      "un+cd": 4,
+      "un": 4,
+      "cd": 0
+    },
+    "group_cr_bin": {
+      "score": 11.9,
+      "un+cd": 42,
+      "un": 37,
+      "cd": 5
+    },
+    "group_bin": {
+      "score": 13.48,
+      "un+cd": 89,
+      "un": 77,
+      "cd": 12
+    },
+    "group_num": {
+      "score": 0.0,
+      "un+cd": 5,
+      "un": 5,
+      "cd": 0
+    }
+  }
+}
